@@ -2,7 +2,6 @@ package github.com.camilyed.jbolt.infrastructure.http;
 
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
 import github.com.camilyed.jbolt.domain.execution.HttpRequest;
-import github.com.camilyed.jbolt.domain.execution.HttpResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -32,13 +31,13 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
                 .returnsSuccess("/users/1", "GET", expectedBody);
 
         // and
-        HttpRequest request = aRequest()
+        var request = aRequest()
                 .withUrl(getBaseUrl() + "/users/1")
                 .withMethod(HttpMethod.GET)
                 .build();
 
         // when
-        HttpResponse response = engine.execute(request);
+        var response = engine.execute(request);
 
         // then
         assertThatResponse(response).isSuccessful()
@@ -51,12 +50,11 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
     void getDelayedResponse() throws Exception {
         // given
         var expectedBody = aJson().withField("message", "ok");
-        var path = "/delayed";
-        givenRemoteServer().returnsDelayed(path, "GET", 500, expectedBody);
+        givenRemoteServer().returnsDelayed( "/delayed", "GET", 500, expectedBody);
 
         // and
-        HttpRequest request = aRequest()
-                .withUrl(getBaseUrl() + path)
+        var request = aRequest()
+                .withUrl(getBaseUrl() +  "/delayed")
                 .withMethod(HttpMethod.GET)
                 .build();
 
@@ -138,7 +136,7 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
                 .build();
 
         // when
-        HttpResponse response = engine.execute(request);
+        var response = engine.execute(request);
 
         // then
         assertThatResponse(response).isSuccessful()
@@ -155,7 +153,7 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
         givenRemoteServer().returnsPUT("/update", expectedBody, Map.of("Authorization", "Bearer token"));
 
         // and
-        HttpRequest request = aRequest()
+        var request = aRequest()
                 .withUrl(getBaseUrl() + "/update")
                 .withMethod(HttpMethod.PUT)
                 .withBody(requestBody.toString())
@@ -208,7 +206,7 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
         // and
         givenRemoteServer().returnsPATCH("/patch/1", expectedBody);
 
-        HttpRequest request = aRequest()
+        var request = aRequest()
                 .withUrl(getBaseUrl() + "/patch/1")
                 .withMethod(HttpMethod.PATCH)
                 .withBody(requestBody.toString())
