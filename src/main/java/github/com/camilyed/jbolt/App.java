@@ -8,15 +8,18 @@ import javafx.stage.Stage;
 
 public class App extends Application {
 
-    private static final String HELLO_VIEW_FXML = "/github/com/camilyed/jbolt/hello-view.fxml";
+    private static final String MAIN_VIEW_FXML = "/github/com/camilyed/jbolt/main-view.fxml";
+    private static final String APP_TITLE = "JBolt | API Tool";
 
     @Override
     public void start(Stage stage) throws Exception {
         Application.setUserAgentStylesheet(new PrimerDark().getUserAgentStylesheet());
-        var fxmlLoader = new FXMLLoader(App.class.getResource(HELLO_VIEW_FXML));
-        var scene = new Scene(fxmlLoader.load(), 800, 600);
-        stage.setTitle("JBolt | API Tool");
+        final var fxmlLoader = new FXMLLoader(App.class.getResource(MAIN_VIEW_FXML));
+        final var scene = new Scene(fxmlLoader.load());
+        stage.setTitle(APP_TITLE);
         stage.setScene(scene);
+        stage.setMinHeight(600);
+        stage.setMinWidth(900);
         stage.show();
     }
 

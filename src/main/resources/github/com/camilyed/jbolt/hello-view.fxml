@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
-
-<VBox alignment="CENTER" spacing="20.0" xmlns:fx="http://javafx.com/fxml"
-      fx:controller="github.com.camilyed.jbolt.HelloController">
-    <Label fx:id="welcomeText" text="Welcome to JBolt" style="-fx-font-family: 'Inter', sans-serif; -fx-font-size: 18px;"/>
-    <Button fx:id="actionBtn" text="Fire Request" onAction="#onHelloButtonClick"/>
-</VBox>
