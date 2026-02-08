@@ -27,7 +27,13 @@ jobs:
       - name: Install Xvfb and GTK dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgtk-3-0 libglow-dev libasound2
+          sudo apt-get install -y \
+            xvfb \
+            libgtk-3-0 \
+            libasound2t64 \
+            libxi6 \
+            libxrender1 \
+            libxtst6
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
