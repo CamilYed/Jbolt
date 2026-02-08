@@ -1,7 +1,6 @@
 package github.com.camilyed.jbolt.infrastructure.http;
 
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
-import github.com.camilyed.jbolt.domain.execution.HttpRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -27,6 +26,7 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
                 .withField("id", 1)
                 .withField("name", "Alice");
 
+        // and
         givenRemoteServer()
                 .returnsSuccess("/users/1", "GET", expectedBody);
 
@@ -125,10 +125,12 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
         // given
         var requestBody = aJson().withField("name", "Bob").withField("age", 30);
         var expectedBody = aJson().withField("id", 123).withField("name", "Bob");
+
+        // and
         givenRemoteServer().returnsPOST("/create", expectedBody);
 
         // and
-        HttpRequest request = aRequest()
+        var request = aRequest()
                 .withUrl(getBaseUrl() + "/create")
                 .withMethod(HttpMethod.POST)
                 .withBody(requestBody.toString())

@@ -34,7 +34,7 @@
                             <children>
                                 <ComboBox fx:id="methodCombo" prefWidth="110.0" />
                                 <TextField fx:id="urlField" HBox.hgrow="ALWAYS"
-                                           promptText="https://api.jbolt.com/v1/resource"
+                                           promptText="https://fakestoreapi.com/products"
                                            style="-fx-font-family: 'Monospaced'; -fx-font-size: 13px;" />
                                 <Button fx:id="sendBtn" styleClass="accent" text="SEND"
                                         onAction="#onSendRequest" minWidth="80.0" />
