@@ -24,17 +24,18 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
+      - name: Install Xvfb and GTK dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-0 libglow-dev libasound2
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build and Test with Headless UI
-        run: ./gradlew test
+      - name: Build and Test with Xvfb
+        run: xvfb-run ./gradlew test
         env:
-          JAVA_TOOL_OPTIONS: >
-            -Djava.awt.headless=true
-            -Dtestfx.robot=glass
-            -Dtestfx.headless=true
-            -Dprism.order=sw
+          JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true -Dtestfx.robot=glass -Dtestfx.headless=true -Dprism.order=sw"

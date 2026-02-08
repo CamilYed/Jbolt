@@ -56,6 +56,10 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    testLogging {
+        events("passed", "skipped", "failed")
+    }
+
     systemProperty("java.awt.headless", "false")
     systemProperty("testfx.robot", "glass")
     systemProperty("testfx.headless", "false")
