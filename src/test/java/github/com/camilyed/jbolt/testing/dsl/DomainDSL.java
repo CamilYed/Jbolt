@@ -4,7 +4,9 @@ import github.com.camilyed.jbolt.domain.execution.HttpMethod;
 import github.com.camilyed.jbolt.domain.execution.HttpRequest;
 import github.com.camilyed.jbolt.domain.execution.HttpResponse;
 import org.assertj.core.api.AbstractAssert;
+import org.assertj.core.api.Assertions;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -117,6 +119,10 @@ public class DomainDSL {
             return this;
         }
 
+        public HttpResponseAssert hasBody(JsonTestDataBuilder expected) {
+            return hasBody(expected.toString());
+        }
+
         public HttpResponseAssert hasBody(String expected) {
             isNotNull();
             if (!actual.body().equals(expected)) {
@@ -127,9 +133,8 @@ public class DomainDSL {
 
         public HttpResponseAssert hasHeaders(Map<String, String> expected) {
             isNotNull();
-            if (!actual.headers().equals(expected)) {
-                failWithMessage("Expected headers <%s> but were <%s>", expected, actual.headers());
-            }
+            Assertions.assertThat(headersToLowerCase(actual.headers()))
+                    .containsAllEntriesOf(headersToLowerCase(expected));
             return this;
         }
 
@@ -139,6 +144,14 @@ public class DomainDSL {
                 failWithMessage("Expected duration <%s> but was <%s>", expected, actual.durationMillis());
             }
             return this;
+        }
+
+        private Map<String, String> headersToLowerCase(Map<String, String> original) {
+            final var result = new HashMap<String, String>(original.size());
+            original.entrySet().forEach(entry -> {
+                result.put(entry.getKey().toLowerCase(), entry.getValue());
+            });
+            return result;
         }
     }
 }

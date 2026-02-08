@@ -10,6 +10,7 @@ val atlantaFxVersion: String by extra { "2.0.1" }
 val jacksonVersion: String by extra { "2.18.2" }
 val junitVersion: String by extra { "5.11.4" }
 val assertjVersion: String by extra { "3.27.3" }
+val wireMockVersion: String by extra { "3.13.2" }
 val testFxVersion: String by extra { "4.0.18" }
 val hamcrestVersion: String by extra { "3.0" }
 val ikonliVersion: String by extra { "12.4.0" }
@@ -47,6 +48,7 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:$junitVersion"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core:$assertjVersion")
+    testImplementation("org.wiremock:wiremock:$wireMockVersion")
     testImplementation("org.hamcrest:hamcrest:${hamcrestVersion}")
     testImplementation("org.testfx:testfx-core:$testFxVersion")
     testImplementation("org.testfx:testfx-junit5:$testFxVersion")
@@ -59,6 +61,7 @@ tasks.test {
     testLogging {
         events("passed", "skipped", "failed")
     }
+    include("**/*Test.class", "**/*IT.class")
 
     systemProperty("java.awt.headless", "false")
     systemProperty("testfx.robot", "glass")
