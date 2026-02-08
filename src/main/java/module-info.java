@@ -8,4 +8,6 @@ module github.com.camilyed.jbolt {
     requires org.kordamp.ikonli.materialdesign2;
     opens github.com.camilyed.jbolt to javafx.fxml;
     exports github.com.camilyed.jbolt;
+    exports github.com.camilyed.jbolt.ui;
+    opens github.com.camilyed.jbolt.ui to javafx.fxml;
 }

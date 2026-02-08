@@ -1,4 +1,4 @@
-package github.com.camilyed.jbolt;
+package github.com.camilyed.jbolt.ui;
 
 import github.com.camilyed.jbolt.application.execution.RequestExecutionService;
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;

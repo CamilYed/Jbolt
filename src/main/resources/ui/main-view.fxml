@@ -16,7 +16,7 @@
 <BorderPane prefHeight="700.0" prefWidth="1000.0"
             xmlns="http://javafx.com/javafx/25"
             xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="github.com.camilyed.jbolt.MainController">
+            fx:controller="github.com.camilyed.jbolt.ui.MainController">
     <left>
         <VBox prefWidth="250.0" style="-fx-background-color: -color-bg-subtle;" BorderPane.alignment="CENTER">
             <children>
