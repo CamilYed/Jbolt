@@ -1,8 +1,6 @@
 package github.com.camilyed.jbolt.domain.execution;
 
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * Domain model representing an immutable HTTP Request.
@@ -30,6 +28,104 @@ public record HttpRequest(
         Objects.requireNonNull(method, "Method cannot be null");
         Objects.requireNonNull(headers, "Headers cannot be null");
         Objects.requireNonNull(body, "Body optional cannot be null");
+    }
+
+    public static HttpRequestBuilder builder() {
+        return HttpRequestBuilder.aRequest();
+    }
+
+    /**
+     * Fluent Builder for {@link HttpRequest} to ensure immutable object creation
+     * with sensible defaults and easy-to-use API.
+     */
+    public static final class HttpRequestBuilder {
+        private String url;
+        private HttpMethod method = HttpMethod.GET;
+        private Map<String, String> headers = new HashMap<>();
+        private Optional<String> body = Optional.empty();
+
+        private HttpRequestBuilder() {
+        }
+
+        /**
+         * Creates a new instance of the builder.
+         *
+         * @return a new HttpRequestBuilder
+         */
+        public static HttpRequestBuilder aRequest() {
+            return new HttpRequestBuilder();
+        }
+
+        /**
+         * Sets the destination URL.
+         *
+         * @param url the destination URL
+         * @return the current builder instance
+         */
+        public HttpRequestBuilder withUrl(String url) {
+            this.url = url;
+            return this;
+        }
+
+        /**
+         * Sets the HTTP method.
+         *
+         * @param method the {@link HttpMethod} to use
+         * @return the current builder instance
+         */
+        public HttpRequestBuilder withMethod(HttpMethod method) {
+            this.method = method;
+            return this;
+        }
+
+        /**
+         * Replaces current headers with the provided map.
+         *
+         * @param headers map of HTTP headers
+         * @return the current builder instance
+         */
+        public HttpRequestBuilder withHeaders(Map<String, String> headers) {
+            this.headers = headers == null ? new HashMap<>() : new HashMap<>(headers);
+            return this;
+        }
+
+        /**
+         * Adds or updates a single header.
+         *
+         * @param name  header name
+         * @param value header value
+         * @return the current builder instance
+         */
+        public HttpRequestBuilder withHeader(String name, String value) {
+            this.headers.put(name, value);
+            return this;
+        }
+
+        /**
+         * Sets the request body. If the value is null, body is set to Optional.empty().
+         *
+         * @param body the request payload
+         * @return the current builder instance
+         */
+        public HttpRequestBuilder withBody(String body) {
+            this.body = Optional.ofNullable(body);
+            return this;
+        }
+
+        /**
+         * Builds the {@link HttpRequest} instance.
+         * Performs final validation via the record's compact constructor.
+         *
+         * @return a new HttpRequest instance
+         */
+        public HttpRequest build() {
+            return new HttpRequest(
+                    url,
+                    method,
+                    Collections.unmodifiableMap(headers),
+                    body
+            );
+        }
     }
 }
 
