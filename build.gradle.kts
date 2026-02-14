@@ -60,8 +60,8 @@ dependencies {
 
 sonar {
     properties {
-        property("sonar.projectKey", "CamilYed_JBolt")
-        property("sonar.organization", "camilyed")
+        property("sonar.projectKey", "SoftwareJCompany_Jbolt")
+        property("sonar.organization", "softwarejcompany")
         property("sonar.host.url", "https://sonarcloud.io")
         property("sonar.coverage.jacoco.xmlReportPaths", layout.buildDirectory.file("reports/jacoco/test/jacocoTestReport.xml").get().asFile.path)
         property("sonar.exclusions", "**/App.java")

@@ -1,3 +1,4 @@
+[![SonarQube Cloud](https://sonarcloud.io/images/project_badges/sonarcloud-light.svg)](https://sonarcloud.io/summary/new_code?id=SoftwareJCompany_Jbolt)
 # ⚡ JBolt
 
 **JBolt** is a high-performance, native REST API client and stress-testing tool built for developers who need **raw power**, **low memory footprint**, and **full control**.
