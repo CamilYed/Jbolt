@@ -3,7 +3,7 @@ plugins {
     id("org.openjfx.javafxplugin") version "0.1.0"
     id("org.beryx.jlink") version "3.1.1"
     id("jacoco")
-    id("org.sonarqube") version "5.0.0.4638"
+    id("org.sonarqube") version "7.2.2.6593"
 }
 
 val javaVersion: String by extra { "25" }
