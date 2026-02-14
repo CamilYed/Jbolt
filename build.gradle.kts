@@ -2,6 +2,8 @@ plugins {
     id("application")
     id("org.openjfx.javafxplugin") version "0.1.0"
     id("org.beryx.jlink") version "3.1.1"
+    id("jacoco")
+    id("org.sonarqube") version "7.2.2.6593"
 }
 
 val javaVersion: String by extra { "25" }
@@ -56,6 +58,16 @@ dependencies {
     testRuntimeOnly("org.openjfx:javafx-swing:$javafxVersion")
 }
 
+sonar {
+    properties {
+        property("sonar.projectKey", "SoftwareJCompany_Jbolt")
+        property("sonar.organization", "softwarejcompany")
+        property("sonar.host.url", "https://sonarcloud.io")
+        property("sonar.coverage.jacoco.xmlReportPaths", layout.buildDirectory.file("reports/jacoco/test/jacocoTestReport.xml").get().asFile.path)
+        property("sonar.exclusions", "**/App.java")
+    }
+}
+
 tasks.test {
     useJUnitPlatform()
     testLogging {
@@ -67,4 +79,17 @@ tasks.test {
     systemProperty("testfx.robot", "glass")
     systemProperty("testfx.headless", "false")
     systemProperty("prism.order", "sw")
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+}
+
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
 }
