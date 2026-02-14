@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.control.SplitPane?>
+
+<VBox spacing="12"
+      xmlns="http://javafx.com/javafx/25"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="github.com.camilyed.jbolt.ui.RequestTabController"
+      styleClass="content-pane">
+
+    <!-- REQUEST BAR -->
+    <HBox spacing="10" alignment="CENTER_LEFT" styleClass="dense">
+        <ComboBox fx:id="methodCombo"
+                  prefWidth="120"
+                  styleClass="button-outlined"/>
+
+        <TextField fx:id="urlField"
+                   HBox.hgrow="ALWAYS"
+                   promptText="https://api.example.com/resource"/>
+
+        <Button fx:id="sendBtn"
+                text="SEND"
+                onAction="#onSend"
+                styleClass="accent"/>
+    </HBox>
+
+    <!-- MAIN SPLIT -->
+    <SplitPane orientation="VERTICAL"
+               VBox.vgrow="ALWAYS"
+               dividerPositions="0.45"
+               styleClass="flat">
+
+        <items>
+            <!-- REQUEST EDITOR -->
+            <TabPane tabClosingPolicy="UNAVAILABLE"
+                     styleClass="flat dense">
+                <tabs>
+                    <Tab text="Body">
+                        <TextArea fx:id="requestBodyArea"
+                                  promptText="Request body (JSON)…"
+                                  styleClass="monospace"/>
+                    </Tab>
+                    <Tab text="Headers">
+                        <VBox spacing="8" styleClass="content-pane">
+                            <Label text="Headers editor coming soon"
+                                   styleClass="text-muted"/>
+                        </VBox>
+                    </Tab>
+                </tabs>
+            </TabPane>
+
+            <!-- RESPONSE -->
+            <VBox spacing="8" styleClass="card">
+                <HBox spacing="12" alignment="CENTER_LEFT">
+                    <Label text="Status" styleClass="text-muted"/>
+                    <Label fx:id="statusLabel" text="—"/>
+
+                    <Separator orientation="VERTICAL"/>
+
+                    <Label text="Time" styleClass="text-muted"/>
+                    <Label fx:id="timeLabel" text="— ms"/>
+                </HBox>
+
+                <TextArea fx:id="responseArea"
+                          editable="false"
+                          VBox.vgrow="ALWAYS"
+                          promptText="Response will appear here…"
+                          styleClass="monospace"/>
+            </VBox>
+        </items>
+    </SplitPane>
+
+</VBox>

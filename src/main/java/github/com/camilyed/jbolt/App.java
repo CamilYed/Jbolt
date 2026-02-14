@@ -8,7 +8,7 @@ import javafx.stage.Stage;
 
 public class App extends Application {
 
-    private static final String MAIN_VIEW_FXML = "/github/com/camilyed/jbolt/main-view.fxml";
+    private static final String MAIN_VIEW_FXML = "/ui/main-view.fxml";
     private static final String APP_TITLE = "JBolt | API Tool";
 
     @Override
@@ -20,6 +20,7 @@ public class App extends Application {
         stage.setScene(scene);
         stage.setMinHeight(600);
         stage.setMinWidth(900);
+        stage.centerOnScreen();
         stage.show();
     }
 
