@@ -1,72 +1,50 @@
 package github.com.camilyed.jbolt.ui;
 
-import github.com.camilyed.jbolt.application.execution.RequestExecutionService;
-import github.com.camilyed.jbolt.domain.execution.HttpMethod;
-import github.com.camilyed.jbolt.domain.execution.HttpResponse;
-import github.com.camilyed.jbolt.infrastructure.http.JavaNetHttpEngine;
-import javafx.collections.FXCollections;
-import javafx.concurrent.Task;
+import atlantafx.base.theme.PrimerDark;
+import javafx.application.Application;
+import javafx.event.Event;
 import javafx.fxml.FXML;
-import javafx.scene.control.*;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 
-import java.util.Map;
+/**
+ * Main window controller responsible for managing the TabPane and application-wide layout.
+ */
+public final class MainController {
 
-public class MainController {
-
-    @FXML private ComboBox<String> methodCombo;
-    @FXML private TextField urlField;
-    @FXML private TextArea responseArea;
-    @FXML private TreeView<String> collectionTree;
-    @FXML private Button sendBtn;
-
-    private RequestExecutionService requestService;
+    @FXML private TabPane requestTabs;
 
     @FXML
     public void initialize() {
-        methodCombo.setItems(
-                FXCollections.observableArrayList("GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS")
-        );
-        methodCombo.getSelectionModel().selectFirst();
+        Application.setUserAgentStylesheet(new PrimerDark().getUserAgentStylesheet());
+        openNewTab();
+    }
 
-        final var root = new TreeItem<>("Collections");
-        root.setExpanded(true);
-        collectionTree.setRoot(root);
-        this.requestService = new RequestExecutionService(new JavaNetHttpEngine());
+    private void openNewTab() {
+        try {
+            final var loader = new FXMLLoader(getClass().getResource("/ui/request-tab.fxml"));
+            final var tab = new Tab("New Request");
+
+            tab.setContent(loader.load());
+            tab.setClosable(true);
+
+            final var tabs = requestTabs.getTabs();
+            final var lastIndex = tabs.size() - 1;
+
+            tabs.add(Math.max(lastIndex, 0), tab);
+            requestTabs.getSelectionModel().select(tab);
+
+        } catch (final Exception e) {
+            throw new RuntimeException("Failed to open request tab", e);
+        }
     }
 
     @FXML
-    protected void onSendRequest() {
-        final var url = urlField.getText();
-        final var method = HttpMethod.valueOf(methodCombo.getValue());
-
-        responseArea.clear();
-        responseArea.appendText("Sending " + method + " to: " + url + "\n");
-
-        final Task<HttpResponse> task = new Task<>() {
-            @Override
-            protected HttpResponse call() throws Exception {
-                return requestService.execute(
-                        url,
-                        method,
-                        Map.of("Content-Type", "application/json"),
-                        ""
-                );
-            }
-        };
-
-        task.setOnSucceeded(_ -> updateUiWithResponse(task.getValue()));
-        task.setOnFailed(_ -> showError(task.getException()));
-
-        new Thread(task, "http-request-thread").start();
-    }
-
-    private void updateUiWithResponse(final HttpResponse response) {
-        responseArea.appendText("\nStatus: " + response.statusCode() + "\n");
-        responseArea.appendText("Duration: " + response.durationMillis() + " ms\n\n");
-        responseArea.appendText(response.body());
-    }
-
-    private void showError(final Throwable error) {
-        responseArea.appendText("\nERROR:\n" + error.getMessage());
+    private void handleAddTabTabSelected(final Event event) {
+        final var tab = (Tab) event.getSource();
+        if (tab.isSelected()) {
+            openNewTab();
+        }
     }
 }

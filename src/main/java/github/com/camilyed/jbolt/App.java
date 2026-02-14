@@ -20,6 +20,7 @@ public class App extends Application {
         stage.setScene(scene);
         stage.setMinHeight(600);
         stage.setMinWidth(900);
+        stage.centerOnScreen();
         stage.show();
     }
 
