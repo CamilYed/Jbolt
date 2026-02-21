@@ -2,6 +2,7 @@ package github.com.camilyed.jbolt.ui.vm;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import github.com.camilyed.jbolt.application.execution.RequestExecutionService;
+import github.com.camilyed.jbolt.common.result.Result;
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
 import github.com.camilyed.jbolt.domain.execution.HttpResponse;
 import javafx.application.Platform;
@@ -13,8 +14,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * ViewModel for the request tab.
- * Manages state and business logic, isolating the view from the domain.
+ * ViewModel for the request tab using the Result pattern and reactive properties.
  */
 public final class RequestTabViewModel {
 
@@ -47,38 +47,31 @@ public final class RequestTabViewModel {
 
         loading.set(true);
 
-        // Using CompletableFuture with Virtual Threads (handled in service)
         CompletableFuture.supplyAsync(this::executeRequest)
-                .thenAccept(resp -> Platform.runLater(() -> handleResponse(resp)))
-                .exceptionally(ex -> {
-                    Platform.runLater(() -> handleError(ex));
-                    return null;
-                })
+                .thenAccept(result -> Platform.runLater(() -> handleResult(result)))
                 .whenComplete((_, _) -> Platform.runLater(() -> loading.set(false)));
     }
 
-    private HttpResponse executeRequest() {
-        final var currentUrl = url.get();
-        final var currentMethod = method.get();
-        final var currentBody = requestBody.get();
+    private Result<HttpResponse> executeRequest() {
+        return service.execute(
+                url.get(),
+                method.get(),
+                Map.of("Accept", "application/json"),
+                requestBody.get()
+        );
+    }
 
-        try {
-            return service.execute(
-                    currentUrl,
-                    currentMethod,
-                    Map.of("Accept", "application/json"),
-                    currentBody
-            );
-        } catch (final Exception e) {
-            throw new RuntimeException(e);
+    private void handleResult(final Result<HttpResponse> result) {
+        switch (result) {
+            case Result.Success(var response) -> handleSuccess(response);
+            case Result.Failure(var error) -> handleError(error);
         }
     }
 
-    private void handleResponse(final HttpResponse resp) {
+    private void handleSuccess(final HttpResponse resp) {
         statusText.set(String.valueOf(resp.statusCode()));
         timeText.set(resp.durationMillis() + " ms");
         statusClass.set(resp.isSuccessful() ? "success" : "danger");
-
         renderResponseBody(resp);
     }
 
@@ -91,7 +84,7 @@ public final class RequestTabViewModel {
             } else {
                 responseBody.set("[Empty Response]");
             }
-        } catch (final Exception e) {
+        } catch (final Exception _) {
             responseBody.set(resp.body());
         }
     }

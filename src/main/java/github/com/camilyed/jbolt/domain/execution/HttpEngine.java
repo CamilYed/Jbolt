@@ -1,16 +1,18 @@
 package github.com.camilyed.jbolt.domain.execution;
 
+import github.com.camilyed.jbolt.common.result.Result;
+
 /**
  * The Domain Port (Interface) for the HTTP execution engine.
- * Implementations of this interface should reside in the infrastructure layer.
+ * Implementations of this interface reside in the infrastructure layer.
  */
 public interface HttpEngine {
+
     /**
-     * Executes the given domain request and returns a domain response.
+     * Executes the given domain request safely using the Result pattern.
      *
      * @param request The domain model containing request details.
-     * @return The resulting HttpResponse domain model.
-     * @throws Exception if a networking or protocol error occurs during execution.
+     * @return A Result containing either the HttpResponse or an execution error.
      */
-    HttpResponse execute(HttpRequest request) throws Exception;
+    Result<HttpResponse> execute(HttpRequest request);
 }

@@ -1,6 +1,8 @@
 package github.com.camilyed.jbolt.testing.dsl.assertions;
 
-import github.com.camilyed.jbolt.domain.workspace.*;
+import github.com.camilyed.jbolt.domain.workspace.Collection;
+import github.com.camilyed.jbolt.domain.workspace.Folder;
+import github.com.camilyed.jbolt.domain.workspace.Project;
 import org.assertj.core.api.AbstractAssert;
 
 public final class WorkspaceAssertions {

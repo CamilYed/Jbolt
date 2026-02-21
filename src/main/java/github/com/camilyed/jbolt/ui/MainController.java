@@ -8,12 +8,20 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 
+import java.io.IOException;
+
 /**
  * Main window controller responsible for managing the TabPane and application-wide layout.
  */
 public final class MainController {
 
     @FXML private TabPane requestTabs;
+
+    private final ControllerFactory controllerFactory;
+
+    public MainController(final ControllerFactory controllerFactory) {
+        this.controllerFactory = controllerFactory;
+    }
 
     @FXML
     public void initialize() {
@@ -24,8 +32,11 @@ public final class MainController {
     private void openNewTab() {
         try {
             final var loader = new FXMLLoader(getClass().getResource("/ui/request-tab.fxml"));
-            final var tab = new Tab("New Request");
 
+            // Setting the factory to inject dependencies into the loaded controller
+            loader.setControllerFactory(controllerFactory);
+
+            final var tab = new Tab("New Request");
             tab.setContent(loader.load());
             tab.setClosable(true);
 
@@ -35,8 +46,8 @@ public final class MainController {
             tabs.add(Math.max(lastIndex, 0), tab);
             requestTabs.getSelectionModel().select(tab);
 
-        } catch (final Exception e) {
-            throw new RuntimeException("Failed to open request tab", e);
+        } catch (final IOException e) {
+            throw new RuntimeException("Failed to open request tab due to I/O error", e);
         }
     }
 

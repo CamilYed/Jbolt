@@ -1,5 +1,6 @@
 package github.com.camilyed.jbolt.infrastructure.http;
 
+import github.com.camilyed.jbolt.common.result.Result;
 import github.com.camilyed.jbolt.domain.execution.HttpEngine;
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
 import github.com.camilyed.jbolt.domain.execution.HttpRequest;
@@ -25,7 +26,7 @@ import java.util.zip.GZIPInputStream;
  * Supports all HTTP methods, headers, JSON body, gzip decoding, and timing.
  * Fully compatible with JBolt DSL and integration tests.
  */
-public final class JavaNetHttpEngine implements HttpEngine {
+final class JavaNetHttpEngine implements HttpEngine {
 
     private static final String GZIP = "gzip";
     private static final String CONTENT_ENCODING = "Content-Encoding";
@@ -44,19 +45,27 @@ public final class JavaNetHttpEngine implements HttpEngine {
     }
 
     @Override
-    public HttpResponse execute(final HttpRequest request) throws Exception {
-        final var start = System.currentTimeMillis();
-        final var httpRequest = buildJavaNetRequest(request);
-        final var rawResponse = client.send(httpRequest, BodyHandlers.ofByteArray());
-        final var body = decodeBody(rawResponse);
-        final var headers = extractHeaders(rawResponse);
-        final var duration = System.currentTimeMillis() - start;
-        return new HttpResponse(
-                rawResponse.statusCode(),
-                body,
-                headers,
-                duration
-        );
+    public Result<HttpResponse> execute(final HttpRequest request) {
+        try {
+            final var start = System.currentTimeMillis();
+            final var javaNetRequest = buildJavaNetRequest(request);
+            final var rawResponse = client.send(javaNetRequest, BodyHandlers.ofByteArray());
+            final var body = decodeBody(rawResponse);
+            final var headers = extractHeaders(rawResponse);
+            final var duration = System.currentTimeMillis() - start;
+
+            return Result.success(new HttpResponse(
+                    rawResponse.statusCode(),
+                    body,
+                    headers,
+                    duration
+            ));
+        } catch (final Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            return Result.failure(e);
+        }
     }
 
     private static java.net.http.HttpRequest buildJavaNetRequest(final HttpRequest request) {

@@ -11,6 +11,7 @@ val javafxVersion: String by extra { "25" }
 val atlantaFxVersion: String by extra { "2.0.1" }
 val jacksonVersion: String by extra { "2.18.2" }
 val junitVersion: String by extra { "5.11.4" }
+val awaitilityVersion: String by extra { "4.3.0" }
 val assertjVersion: String by extra { "3.27.3" }
 val wireMockVersion: String by extra { "3.13.2" }
 val testFxVersion: String by extra { "4.0.18" }
@@ -49,6 +50,7 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:$junitVersion"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.awaitility:awaitility:$awaitilityVersion")
     testImplementation("org.assertj:assertj-core:$assertjVersion")
     testImplementation("org.wiremock:wiremock:$wireMockVersion")
     testImplementation("org.hamcrest:hamcrest:${hamcrestVersion}")

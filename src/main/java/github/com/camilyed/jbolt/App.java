@@ -1,30 +1,56 @@
 package github.com.camilyed.jbolt;
 
-import atlantafx.base.theme.PrimerDark;
+import github.com.camilyed.jbolt.application.execution.RequestExecutionService;
+import github.com.camilyed.jbolt.infrastructure.http.HttpInfrastructure;
+import github.com.camilyed.jbolt.ui.ControllerFactory;
+import github.com.camilyed.jbolt.ui.MainController;
+import github.com.camilyed.jbolt.ui.RequestTabController;
+import github.com.camilyed.jbolt.ui.vm.RequestTabViewModel;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
-public class App extends Application {
+public final class App extends Application {
 
-    private static final String MAIN_VIEW_FXML = "/ui/main-view.fxml";
-    private static final String APP_TITLE = "JBolt | API Tool";
+    private RequestExecutionService requestExecutionService;
 
     @Override
-    public void start(Stage stage) throws Exception {
-        Application.setUserAgentStylesheet(new PrimerDark().getUserAgentStylesheet());
-        final var fxmlLoader = new FXMLLoader(App.class.getResource(MAIN_VIEW_FXML));
-        final var scene = new Scene(fxmlLoader.load());
-        stage.setTitle(APP_TITLE);
+    public void init() {
+        // Infrastructure layer is securely encapsulated behind a provider
+        final var httpEngine = HttpInfrastructure.defaultEngine();
+
+        // Application layer setup
+        this.requestExecutionService = new RequestExecutionService(httpEngine);
+    }
+
+    @Override
+    public void start(final Stage stage) throws Exception {
+        final var loader = new FXMLLoader(getClass().getResource("/ui/main-view.fxml"));
+
+        final ControllerFactory factory = this::createController;
+        loader.setControllerFactory(factory);
+
+        final var scene = new Scene(loader.load(), 1200, 800);
+        stage.setTitle("JBolt");
         stage.setScene(scene);
-        stage.setMinHeight(600);
-        stage.setMinWidth(900);
-        stage.centerOnScreen();
         stage.show();
     }
 
-    public static void main(String[] args) {
-        launch();
+    private Object createController(final Class<?> type) {
+        if (type == MainController.class) {
+            return new MainController(this::createController);
+        }
+
+        if (type == RequestTabController.class) {
+            final var vm = new RequestTabViewModel(requestExecutionService);
+            return new RequestTabController(vm);
+        }
+
+        throw new IllegalArgumentException("Unknown controller type requested: " + type.getName());
+    }
+
+    public static void main(final String[] args) {
+        launch(args);
     }
 }

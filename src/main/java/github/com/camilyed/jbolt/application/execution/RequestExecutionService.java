@@ -1,5 +1,6 @@
 package github.com.camilyed.jbolt.application.execution;
 
+import github.com.camilyed.jbolt.common.result.Result;
 import github.com.camilyed.jbolt.domain.execution.HttpEngine;
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
 import github.com.camilyed.jbolt.domain.execution.HttpRequest;
@@ -15,20 +16,19 @@ public final class RequestExecutionService {
         this.httpEngine = httpEngine;
     }
 
-    public HttpResponse execute(
+    public Result<HttpResponse> execute(
             final String url,
             final HttpMethod method,
             final Map<String, String> headers,
             final String body
-    ) throws Exception {
-
-        final var request = HttpRequest.builder()
-                .withUrl(url)
-                .withMethod(method)
-                .withHeaders(headers)
-                .withBody(body)
-                .build();
-
-        return httpEngine.execute(request);
+    ) {
+        return Result.of(() ->
+                HttpRequest.builder()
+                        .withUrl(url)
+                        .withMethod(method)
+                        .withHeaders(headers)
+                        .withBody(body)
+                        .build()
+        ).flatMap(httpEngine::execute);
     }
 }

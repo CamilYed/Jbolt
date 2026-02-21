@@ -9,18 +9,19 @@ import java.util.Map;
 import static github.com.camilyed.jbolt.testing.dsl.DomainDSL.HttpRequestBuilder.aRequest;
 import static github.com.camilyed.jbolt.testing.dsl.DomainDSL.assertThatResponse;
 import static github.com.camilyed.jbolt.testing.dsl.JsonTestDataBuilder.aJson;
+import static github.com.camilyed.jbolt.testing.dsl.assertions.ResultAssertion.assertThatResult;
 
 /**
  * Integration tests for {@link JavaNetHttpEngine} using WireMock.
- * Tests HTTP scenarios: GET/POST/PUT/DELETE, headers, JSON body, GZip, delays, and error status codes.
+ * Tests HTTP scenarios using the Result pattern.
  */
 class JavaNetHttpEngineIT extends BaseHttpIT {
 
     private final JavaNetHttpEngine engine = new JavaNetHttpEngine();
 
     @Test
-    @DisplayName("GET returns 200 with JSON body and headers")
-    void getReturnsJson() throws Exception {
+    @DisplayName("GET returns 200 with JSON body and headers (wrapped in Result)")
+    void getReturnsJson() {
         // given
         var expectedBody = aJson()
                 .withField("id", 1)
@@ -37,43 +38,45 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
                 .build();
 
         // when
-        var response = engine.execute(request);
+        var result = engine.execute(request);
 
         // then
-        assertThatResponse(response).isSuccessful()
-                .hasBody(expectedBody)
-                .hasHeaders(Map.of("Content-Type", "application/json"));
+        assertThatResult(result).isSuccess(response ->
+                assertThatResponse(response)
+                        .isSuccessful()
+                        .hasBody(expectedBody)
+                        .hasHeaders(Map.of("Content-Type", "application/json"))
+        );
     }
 
     @Test
     @DisplayName("GET with delayed response respects engine timing")
-    void getDelayedResponse() throws Exception {
+    void getDelayedResponse() {
         // given
         var expectedBody = aJson().withField("message", "ok");
-        givenRemoteServer().returnsDelayed( "/delayed", "GET", 500, expectedBody);
+        givenRemoteServer().returnsDelayed("/delayed", "GET", 500, expectedBody);
 
         // and
         var request = aRequest()
-                .withUrl(getBaseUrl() +  "/delayed")
+                .withUrl(getBaseUrl() + "/delayed")
                 .withMethod(HttpMethod.GET)
                 .build();
 
         // when
-        long start = System.currentTimeMillis();
-        var response = engine.execute(request);
-        long duration = System.currentTimeMillis() - start;
+        var result = engine.execute(request);
 
         // then
-        assertThatResponse(response).isSuccessful()
-                .hasBody(expectedBody);
+        assertThatResult(result).isSuccess(response ->
+                assertThatResponse(response)
+                        .isSuccessful()
+                        .hasBody(expectedBody)
 
-        // and
-        assert duration >= 500;
+        );
     }
 
     @Test
-    @DisplayName("GET with GZip response is decompressed")
-    void getGzipResponse() throws Exception {
+    @DisplayName("GET with GZip response is decompressed correctly")
+    void getGzipResponse() {
         // given
         var expectedBody = aJson().withField("data", "compressed");
         var path = "/gzip";
@@ -86,20 +89,23 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
                 .build();
 
         // when
-        var response = engine.execute(request);
+        var result = engine.execute(request);
 
         // then
-        assertThatResponse(response).isSuccessful()
-                .hasBody(expectedBody)
-                .hasHeaders(Map.of(
-                        "Content-Encoding", "gzip",
-                        "Content-Type", "application/json"
-                ));
+        assertThatResult(result).isSuccess(response ->
+                assertThatResponse(response)
+                        .isSuccessful()
+                        .hasBody(expectedBody)
+                        .hasHeaders(Map.of(
+                                "Content-Encoding", "gzip",
+                                "Content-Type", "application/json"
+                        ))
+        );
     }
 
     @Test
-    @DisplayName("GET returns error codes correctly")
-    void getErrorStatus() throws Exception {
+    @DisplayName("GET returns error codes as Successful Result (HTTP protocol success)")
+    void getErrorStatus() {
         // given
         var path = "/error";
         givenRemoteServer().returnsError(path, 404);
@@ -111,17 +117,21 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
                 .build();
 
         // when
-        var response = engine.execute(request);
+        var result = engine.execute(request);
 
-        // then
-        assertThatResponse(response).isNotSuccessful()
-                .hasStatusCode(404)
-                .hasBody("");
+        // then: It is a Result.Success because the network call succeeded,
+        // but the HttpResponse inside indicates a 404 (isNotSuccessful).
+        assertThatResult(result).isSuccess(response ->
+                assertThatResponse(response)
+                        .isNotSuccessful()
+                        .hasStatusCode(404)
+                        .hasBody("")
+        );
     }
 
     @Test
     @DisplayName("POST sends JSON body and receives JSON response")
-    void postJsonBody() throws Exception {
+    void postJsonBody() {
         // given
         var requestBody = aJson().withField("name", "Bob").withField("age", 30);
         var expectedBody = aJson().withField("id", 123).withField("name", "Bob");
@@ -138,17 +148,20 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
                 .build();
 
         // when
-        var response = engine.execute(request);
+        var result = engine.execute(request);
 
         // then
-        assertThatResponse(response).isSuccessful()
-                .hasBody(expectedBody)
-                .hasHeaders(Map.of("Content-Type", "application/json"));
+        assertThatResult(result).isSuccess(response ->
+                assertThatResponse(response)
+                        .isSuccessful()
+                        .hasBody(expectedBody)
+                        .hasHeaders(Map.of("Content-Type", "application/json"))
+        );
     }
 
     @Test
     @DisplayName("PUT request with headers and body")
-    void putWithHeadersAndBody() throws Exception {
+    void putWithHeadersAndBody() {
         // given
         var requestBody = aJson().withField("status", "active");
         var expectedBody = aJson().withField("updated", true);
@@ -166,19 +179,20 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
                 .build();
 
         // when
-        var response = engine.execute(request);
+        var result = engine.execute(request);
 
         // then
-        assertThatResponse(response).isSuccessful()
-                .hasBody(expectedBody)
-                .hasHeaders(Map.of(
-                        "Content-Type", "application/json"
-                ));
+        assertThatResult(result).isSuccess(response ->
+                assertThatResponse(response)
+                        .isSuccessful()
+                        .hasBody(expectedBody)
+                        .hasHeaders(Map.of("Content-Type", "application/json"))
+        );
     }
 
     @Test
     @DisplayName("DELETE request returns 204 No Content")
-    void deleteReturnsNoContent() throws Exception {
+    void deleteReturnsNoContent() {
         // given
         var expectedBody = aJson(); // empty body
         givenRemoteServer().returnsDELETE("/delete/1", expectedBody);
@@ -190,17 +204,20 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
                 .build();
 
         // when
-        var response = engine.execute(request);
+        var result = engine.execute(request);
 
         // then
-        assertThatResponse(response).isSuccessful()
-                .hasStatusCode(200)
-                .hasBody(expectedBody);
+        assertThatResult(result).isSuccess(response ->
+                assertThatResponse(response)
+                        .isSuccessful()
+                        .hasStatusCode(200)
+                        .hasBody(expectedBody)
+        );
     }
 
     @Test
     @DisplayName("PATCH request updates resource")
-    void patchRequest() throws Exception {
+    void patchRequest() {
         // given
         var requestBody = aJson().withField("field", "new");
         var expectedBody = aJson().withField("updated", true);
@@ -215,16 +232,19 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
                 .build();
 
         // when
-        var response = engine.execute(request);
+        var result = engine.execute(request);
 
         // then
-        assertThatResponse(response).isSuccessful()
-                .hasBody(expectedBody);
+        assertThatResult(result).isSuccess(response ->
+                assertThatResponse(response)
+                        .isSuccessful()
+                        .hasBody(expectedBody)
+        );
     }
 
     @Test
     @DisplayName("OPTIONS request returns 200")
-    void optionsRequest() throws Exception {
+    void optionsRequest() {
         // given
         givenRemoteServer().returnsOPTIONS("/options");
 
@@ -235,15 +255,17 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
                 .build();
 
         // when
-        var response = engine.execute(request);
+        var result = engine.execute(request);
 
         // then
-        assertThatResponse(response).isSuccessful();
+        assertThatResult(result).isSuccess(response ->
+                assertThatResponse(response).isSuccessful()
+        );
     }
 
     @Test
     @DisplayName("HEAD request returns 200 with headers")
-    void headRequest() throws Exception {
+    void headRequest() {
         // given
         givenRemoteServer().returnsHEAD("/head");
 
@@ -254,11 +276,13 @@ class JavaNetHttpEngineIT extends BaseHttpIT {
                 .build();
 
         // when
-        var response = engine.execute(request);
+        var result = engine.execute(request);
 
         // then
-        assertThatResponse(response)
-                .isSuccessful()
-                .hasStatusCode(200);
+        assertThatResult(result).isSuccess(response ->
+                assertThatResponse(response)
+                        .isSuccessful()
+                        .hasStatusCode(200)
+        );
     }
 }

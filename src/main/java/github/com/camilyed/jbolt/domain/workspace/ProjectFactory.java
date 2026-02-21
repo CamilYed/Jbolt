@@ -9,6 +9,9 @@ import java.util.UUID;
  */
 final class ProjectFactory {
 
+    private ProjectFactory() {
+    }
+
     static Project createNewProject(final String name) {
         return new Project(UUID.randomUUID(), name, List.of());
     }
