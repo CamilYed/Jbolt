@@ -60,10 +60,10 @@ final class JavaNetHttpEngine implements HttpEngine {
                     headers,
                     duration
             ));
-        } catch (final Exception e) {
-            if (e instanceof InterruptedException) {
+        } catch (final InterruptedException e) {
                 Thread.currentThread().interrupt();
-            }
+            return Result.failure(e);
+        } catch (final Exception e) {
             return Result.failure(e);
         }
     }

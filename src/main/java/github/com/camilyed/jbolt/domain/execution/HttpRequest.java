@@ -1,6 +1,10 @@
 package github.com.camilyed.jbolt.domain.execution;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Domain model representing an immutable HTTP Request.

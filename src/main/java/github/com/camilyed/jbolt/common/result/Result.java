@@ -3,14 +3,18 @@ package github.com.camilyed.jbolt.common.result;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * A sealed generic result type representing either Success (value) or Failure (error).
  */
 public sealed interface Result<T> permits Result.Success, Result.Failure {
 
-    static <T> Result<T> of(Supplier<T> supplier) {
+    @FunctionalInterface
+    interface ThrowingSupplier<T> {
+        T get() throws Exception;
+    }
+
+    static <T> Result<T> of(ThrowingSupplier<T> supplier) {
         try {
             return Result.success(supplier.get());
         } catch (Throwable throwable) {

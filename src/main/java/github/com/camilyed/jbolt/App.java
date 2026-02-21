@@ -5,7 +5,8 @@ import github.com.camilyed.jbolt.infrastructure.http.HttpInfrastructure;
 import github.com.camilyed.jbolt.ui.ControllerFactory;
 import github.com.camilyed.jbolt.ui.MainController;
 import github.com.camilyed.jbolt.ui.RequestTabController;
-import github.com.camilyed.jbolt.ui.vm.RequestTabViewModel;
+import github.com.camilyed.jbolt.ui.model.RequestTabViewModel;
+import github.com.camilyed.jbolt.ui.service.UiMessageService;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
@@ -14,14 +15,13 @@ import javafx.stage.Stage;
 public final class App extends Application {
 
     private RequestExecutionService requestExecutionService;
+    private UiMessageService uiMessageService;
 
     @Override
     public void init() {
-        // Infrastructure layer is securely encapsulated behind a provider
         final var httpEngine = HttpInfrastructure.defaultEngine();
-
-        // Application layer setup
         this.requestExecutionService = new RequestExecutionService(httpEngine);
+        this.uiMessageService = new UiMessageService();
     }
 
     @Override
@@ -39,7 +39,7 @@ public final class App extends Application {
 
     private Object createController(final Class<?> type) {
         if (type == MainController.class) {
-            return new MainController(this::createController);
+            return new MainController(this::createController, uiMessageService);
         }
 
         if (type == RequestTabController.class) {

@@ -1,6 +1,10 @@
 package github.com.camilyed.jbolt.testing.dsl;
 
-import github.com.camilyed.jbolt.domain.workspace.*;
+import github.com.camilyed.jbolt.domain.workspace.Collection;
+import github.com.camilyed.jbolt.domain.workspace.Folder;
+import github.com.camilyed.jbolt.domain.workspace.HttpRequestModel;
+import github.com.camilyed.jbolt.domain.workspace.Project;
+import github.com.camilyed.jbolt.domain.workspace.Resource;
 
 import java.util.ArrayList;
 import java.util.List;

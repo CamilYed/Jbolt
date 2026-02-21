@@ -1,4 +1,4 @@
-package github.com.camilyed.jbolt.ui.vm;
+package github.com.camilyed.jbolt.ui.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import github.com.camilyed.jbolt.application.execution.RequestExecutionService;
@@ -6,7 +6,12 @@ import github.com.camilyed.jbolt.common.result.Result;
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
 import github.com.camilyed.jbolt.domain.execution.HttpResponse;
 import javafx.application.Platform;
-import javafx.beans.property.*;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 

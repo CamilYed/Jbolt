@@ -50,6 +50,37 @@ class ResultTest {
     }
 
     @Test
+    @DisplayName("Result.of() should capture checked IOException")
+    void shouldCaptureCheckedException() {
+        // given
+        final var message = "Disk read error";
+
+        // when
+        final Result<String> result = Result.of(() -> {
+            throw new java.io.IOException(message); // Checked exception
+        });
+
+        // then
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result).isInstanceOf(Result.Failure.class);
+
+        final var failure = (Result.Failure<String>) result;
+        assertThat(failure.error()).isInstanceOf(java.io.IOException.class);
+        assertThat(failure.error().getMessage()).isEqualTo(message);
+    }
+
+    @Test
+    @DisplayName("Result.of() should return Success when throwing supplier succeeds")
+    void shouldReturnSuccessFromThrowingSupplier() {
+        // when
+        final var result = Result.of(() -> "Success Path");
+
+        // then
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(((Result.Success<String>) result).value()).isEqualTo("Success Path");
+    }
+
+    @Test
     @DisplayName("should throw NPE when creating Failure with null")
     void shouldThrowOnNullFailure() {
         // expect

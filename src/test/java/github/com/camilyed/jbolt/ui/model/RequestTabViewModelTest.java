@@ -1,4 +1,4 @@
-package github.com.camilyed.jbolt.ui.vm;
+package github.com.camilyed.jbolt.ui.model;
 
 import github.com.camilyed.jbolt.application.execution.RequestExecutionService;
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
@@ -27,7 +27,7 @@ class RequestTabViewModelTest {
     static void initJavaFX() {
         try {
             Platform.startup(() -> {});
-        } catch (final IllegalStateException ignored) {
+        } catch (final IllegalStateException _) {
             // Toolkit already initialized
         }
     }
