@@ -1,31 +1,30 @@
 package github.com.camilyed.jbolt.ui;
 
 import atlantafx.base.theme.PrimerDark;
-import github.com.camilyed.jbolt.common.result.Result;
 import github.com.camilyed.jbolt.ui.model.UiError;
 import github.com.camilyed.jbolt.ui.service.UiMessageService;
+import github.com.camilyed.jbolt.ui.service.ViewLoader;
 import javafx.application.Application;
 import javafx.event.Event;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 
-/**
- * Main window controller managing the tab-based workspace.
- */
 public final class MainController {
 
     private static final String REQUEST_TAB_FXML = "/ui/request-tab.fxml";
 
-    @FXML private TabPane requestTabs;
+    @FXML
+    TabPane requestTabs;
 
-    private final ControllerFactory controllerFactory;
+    private final ViewLoader viewLoader;
     private final UiMessageService uiMessageService;
 
-    public MainController(final ControllerFactory controllerFactory, final UiMessageService uiMessageService) {
-        this.controllerFactory = controllerFactory;
+    public MainController(
+            final ViewLoader viewLoader,
+            final UiMessageService uiMessageService) {
+        this.viewLoader = viewLoader;
         this.uiMessageService = uiMessageService;
     }
 
@@ -36,21 +35,9 @@ public final class MainController {
     }
 
     void openNewTab() {
-        loadTabContent(REQUEST_TAB_FXML)
+        viewLoader.load(REQUEST_TAB_FXML)
                 .onSuccess(this::addNewTabToPane)
                 .onFailure(this::handleLoadingError);
-    }
-
-    private Result<Parent> loadTabContent(final String fxmlPath) {
-        return Result.of(() -> {
-            final var resource = getClass().getResource(fxmlPath);
-            if (resource == null) {
-                throw new java.io.IOException("FXML resource not found: " + fxmlPath);
-            }
-            final var loader = new FXMLLoader(resource);
-            loader.setControllerFactory(controllerFactory);
-            return (Parent) loader.load();
-        });
     }
 
     private void addNewTabToPane(final Parent root) {
@@ -75,7 +62,7 @@ public final class MainController {
     }
 
     @FXML
-    private void handleAddTabTabSelected(final Event event) {
+    void handleAddTabTabSelected(final Event event) {
         final var tab = (Tab) event.getSource();
         if (tab.isSelected()) {
             openNewTab();

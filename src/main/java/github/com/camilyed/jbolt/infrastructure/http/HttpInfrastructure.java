@@ -9,7 +9,6 @@ import github.com.camilyed.jbolt.domain.execution.HttpEngine;
 public final class HttpInfrastructure {
 
     private HttpInfrastructure() {
-        throw new UnsupportedOperationException("Utility class");
     }
 
     public static HttpEngine defaultEngine() {

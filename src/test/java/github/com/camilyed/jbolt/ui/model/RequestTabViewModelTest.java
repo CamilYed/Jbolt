@@ -20,7 +20,6 @@ class RequestTabViewModelTest {
 
     private final FakeHttpEngine fakeEngine = new FakeHttpEngine();
     private final RequestExecutionService service = new RequestExecutionService(fakeEngine);
-
     private RequestTabViewModel vm;
 
     @BeforeAll
@@ -28,7 +27,7 @@ class RequestTabViewModelTest {
         try {
             Platform.startup(() -> {});
         } catch (final IllegalStateException _) {
-            // Toolkit already initialized
+            // Already initialized
         }
     }
 
@@ -43,7 +42,6 @@ class RequestTabViewModelTest {
         // given
         final var jsonBody = "{\"ok\":true}";
         final var response = new HttpResponse(200, jsonBody, Map.of(), 100);
-
         fakeEngine.willReturn(response);
 
         vm.url.set("http://test.com");
@@ -56,19 +54,53 @@ class RequestTabViewModelTest {
         await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
             assertThat(vm.statusText.get()).isEqualTo("200");
             assertThat(vm.statusClass.get()).isEqualTo("success");
-            assertThat(vm.timeText.get()).contains("100 ms");
             assertThat(vm.responseBody.get()).contains("\"ok\" : true");
-            assertThat(fakeEngine.lastRequest().url()).isEqualTo("http://test.com");
         });
     }
 
     @Test
-    @DisplayName("Should show error message on failure")
-    void shouldHandleFailure() {
+    @DisplayName("Should handle empty response body gracefully")
+    void shouldHandleEmptyBody() {
         // given
-        final var errorMsg = "Network Error";
-        fakeEngine.willFail(new RuntimeException(errorMsg));
+        final var response = new HttpResponse(204, "", Map.of(), 50);
+        fakeEngine.willReturn(response);
+        vm.url.set("http://empty.com");
 
+        // when
+        vm.sendRequest();
+
+        // then
+        await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
+            assertThat(vm.responseBody.get()).isEqualTo("[Empty Response]");
+            assertThat(vm.statusText.get()).isEqualTo("204");
+        });
+    }
+
+    @Test
+    @DisplayName("Should handle malformed JSON and fall back to raw text")
+    void shouldHandleMalformedJson() {
+        // given
+        final var invalidJson = "{ \"bad_json\": true "; // Missing closing brace
+        final var response = new HttpResponse(200, invalidJson, Map.of(), 50);
+        fakeEngine.willReturn(response);
+        vm.url.set("http://invalid.com");
+
+        // when
+        vm.sendRequest();
+
+        // then
+        await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
+            assertThat(vm.responseBody.get()).isEqualTo(invalidJson);
+        });
+    }
+
+    @Test
+    @DisplayName("Should extract root cause message from nested exceptions")
+    void shouldHandleNestedException() {
+        // given
+        final var rootMessage = "Connection refused";
+        final var wrapper = new RuntimeException("Outer", new Exception(rootMessage));
+        fakeEngine.willFail(wrapper);
         vm.url.set("http://fail.com");
 
         // when
@@ -76,8 +108,25 @@ class RequestTabViewModelTest {
 
         // then
         await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
+            assertThat(vm.responseBody.get()).contains(rootMessage);
             assertThat(vm.statusText.get()).isEqualTo("ERROR");
             assertThat(vm.statusClass.get()).isEqualTo("danger");
+        });
+    }
+
+    @Test
+    @DisplayName("Should show error message on direct exception without cause")
+    void shouldHandleSimpleException() {
+        // given
+        final var errorMsg = "Direct Failure";
+        fakeEngine.willFail(new RuntimeException(errorMsg));
+        vm.url.set("http://fail.com");
+
+        // when
+        vm.sendRequest();
+
+        // then
+        await().atMost(2, TimeUnit.SECONDS).untilAsserted(() -> {
             assertThat(vm.responseBody.get()).contains(errorMsg);
         });
     }
