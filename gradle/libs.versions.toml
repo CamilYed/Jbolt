@@ -1,7 +1,7 @@
 [versions]
 javafx = "25"
 openjfx-plugin = "0.1.0"
-jlink-plugin = "3.1.1"
+jlink-plugin = "4.1.1"
 atlantafx = "2.1.0"
 jackson = "2.18.2"
 ikonli = "12.4.0"
