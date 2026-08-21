@@ -250,8 +250,8 @@ public final class RequestTabController implements Component<VBox> {
 
   /**
    * The card body is one of three views sharing a {@link StackPane}: the plain text area (initial
-   * empty state, and non-JSON or scalar bodies), the collapsible tree, or the highlighted raw
-   * JSON text - {@link #updateVisibleView()} toggles which one is visible.
+   * empty state, and non-JSON or scalar bodies), the collapsible tree, or the highlighted raw JSON
+   * text - {@link #updateVisibleView()} toggles which one is visible.
    */
   private StackPane buildResponseBody() {
     responseArea = new TextArea();
@@ -308,8 +308,7 @@ public final class RequestTabController implements Component<VBox> {
         value.setFill(jsonValueColor(row));
         final var content = new TextFlow(key, value);
 
-        final var level =
-            getTreeView() == null ? 0 : getTreeView().getTreeItemLevel(getTreeItem());
+        final var level = getTreeView() == null ? 0 : getTreeView().getTreeItemLevel(getTreeItem());
         final var line = new HBox(buildIndentGuides(level), content);
         line.setAlignment(Pos.CENTER_LEFT);
         setGraphic(line);
@@ -377,12 +376,12 @@ public final class RequestTabController implements Component<VBox> {
 
   /**
    * Renders a JSON value as pretty-printed, colored {@link Text} runs - punctuation (braces,
-   * brackets, colons, commas) is muted so it reads as structure rather than content, while keys
-   * and values keep the same palette as the tree. This reproduces the response exactly as the API
-   * sent it, unlike the tree's per-row size previews, for anyone who wants to see the whole
-   * document at once. Every object/array's opening bracket is itself a clickable {@link
-   * #foldToggle(JsonNode, String)} that collapses it to a "{…}"/"[…]" placeholder, the same
-   * gesture a code editor's gutter fold icon offers, without needing a gutter here.
+   * brackets, colons, commas) is muted so it reads as structure rather than content, while keys and
+   * values keep the same palette as the tree. This reproduces the response exactly as the API sent
+   * it, unlike the tree's per-row size previews, for anyone who wants to see the whole document at
+   * once. Every object/array's opening bracket is itself a clickable {@link #foldToggle(JsonNode,
+   * String)} that collapses it to a "{…}"/"[…]" placeholder, the same gesture a code editor's
+   * gutter fold icon offers, without needing a gutter here.
    */
   private List<Text> buildRawJsonNodes(final JsonNode json) {
     foldIdSeq = 0;
@@ -447,14 +446,13 @@ public final class RequestTabController implements Component<VBox> {
   }
 
   /**
-   * A clickable "{" or "[" that toggles its own container's fold state and re-renders the raw
-   * view. Rendered noticeably larger and bolder than the surrounding punctuation - at normal text
-   * size a lone bracket reads as inert, too small to comfortably aim at and easy to mistake for
-   * plain structure rather than a control - and it swaps to the accent color with an underline on
-   * hover so the pointer confirms it's interactive before the click even lands. IDs are assigned
-   * in traversal order ("fold-0", "fold-1", …) purely so tests can target a specific container
-   * without depending on JSON key names, which may contain characters a CSS id selector can't
-   * express.
+   * A clickable "{" or "[" that toggles its own container's fold state and re-renders the raw view.
+   * Rendered noticeably larger and bolder than the surrounding punctuation - at normal text size a
+   * lone bracket reads as inert, too small to comfortably aim at and easy to mistake for plain
+   * structure rather than a control - and it swaps to the accent color with an underline on hover
+   * so the pointer confirms it's interactive before the click even lands. IDs are assigned in
+   * traversal order ("fold-0", "fold-1", …) purely so tests can target a specific container without
+   * depending on JSON key names, which may contain characters a CSS id selector can't express.
    */
   private Text foldToggle(final JsonNode node, final String openChar) {
     final var text = new Text(openChar);
