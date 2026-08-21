@@ -13,6 +13,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.control.TreeView;
 import javafx.scene.layout.VBox;
 import org.junit.jupiter.api.BeforeAll;
@@ -172,5 +173,72 @@ class RequestTabControllerTest {
     // then
     assertThat(responseArea.isVisible()).isTrue();
     assertThat(responseTree.isVisible()).isFalse();
+  }
+
+  @Test
+  @DisplayName("should hide the tree/raw view toggle when there is no parsed json to switch")
+  void shouldHideViewToggleWhenNoJson() {
+    // given
+    final var root = realized(controller);
+
+    // then
+    final var viewToggleBox = root.lookup("#viewToggleBox");
+    assertThat(viewToggleBox.isVisible()).isFalse();
+  }
+
+  @Test
+  @DisplayName("should show the view toggle and default to the tree for object responses")
+  void shouldShowViewToggleAndDefaultToTree() throws Exception {
+    // given
+    final var root = realized(controller);
+    final var viewToggleBox = root.lookup("#viewToggleBox");
+    final var responseTree = (TreeView<?>) root.lookup("#responseTree");
+    final var rawJsonView = root.lookup("#rawJsonView");
+
+    // when
+    vm.responseJson.set(MAPPER.readTree("{\"id\":1}"));
+
+    // then
+    assertThat(viewToggleBox.isVisible()).isTrue();
+    assertThat(responseTree.isVisible()).isTrue();
+    assertThat(rawJsonView.isVisible()).isFalse();
+  }
+
+  @Test
+  @DisplayName("should switch to the highlighted raw view when the Raw toggle is clicked")
+  void shouldSwitchToRawViewOnToggle() throws Exception {
+    // given
+    final var root = realized(controller);
+    vm.responseJson.set(MAPPER.readTree("{\"id\":1}"));
+    final var responseTree = (TreeView<?>) root.lookup("#responseTree");
+    final var rawJsonView = root.lookup("#rawJsonView");
+    final var rawToggleBtn = (ToggleButton) root.lookup("#rawToggleBtn");
+
+    // when
+    rawToggleBtn.fire();
+
+    // then
+    assertThat(rawJsonView.isVisible()).isTrue();
+    assertThat(responseTree.isVisible()).isFalse();
+  }
+
+  @Test
+  @DisplayName("should switch back to the tree when the Tree toggle is clicked again")
+  void shouldSwitchBackToTreeOnToggle() throws Exception {
+    // given
+    final var root = realized(controller);
+    vm.responseJson.set(MAPPER.readTree("{\"id\":1}"));
+    final var responseTree = (TreeView<?>) root.lookup("#responseTree");
+    final var rawJsonView = root.lookup("#rawJsonView");
+    final var rawToggleBtn = (ToggleButton) root.lookup("#rawToggleBtn");
+    final var treeToggleBtn = (ToggleButton) root.lookup("#treeToggleBtn");
+    rawToggleBtn.fire();
+
+    // when
+    treeToggleBtn.fire();
+
+    // then
+    assertThat(responseTree.isVisible()).isTrue();
+    assertThat(rawJsonView.isVisible()).isFalse();
   }
 }

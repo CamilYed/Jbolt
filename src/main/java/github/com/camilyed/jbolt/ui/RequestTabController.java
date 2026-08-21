@@ -6,6 +6,9 @@ import atlantafx.base.theme.Tweaks;
 import com.fasterxml.jackson.databind.JsonNode;
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
 import github.com.camilyed.jbolt.ui.model.RequestTabViewModel;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
@@ -13,12 +16,15 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeView;
 import javafx.scene.layout.HBox;
@@ -48,20 +54,34 @@ public final class RequestTabController implements Component<VBox> {
   private static final Color DELETE_COLOR = Color.web("#f85149");
   private static final Color OTHER_METHOD_COLOR = Color.web("#8b949e");
 
-  // Colors for the response JSON tree's syntax highlighting.
+  // Colors shared by the response JSON tree and the raw highlighted view.
   private static final Color JSON_KEY_COLOR = Color.web("#79c0ff");
   private static final Color JSON_STRING_COLOR = Color.web("#a5d6ff");
   private static final Color JSON_SCALAR_COLOR = Color.web("#d2a8ff");
   private static final Color JSON_CONTAINER_COLOR = Color.web("#8b949e");
+
+  private static final int INDENT_GUIDE_WIDTH = 14;
+  private static final String INDENT_UNIT = "  ";
 
   private ComboBox<HttpMethod> methodCombo;
   private TextField urlField;
   private TextArea requestBodyArea;
   private TextArea responseArea;
   private TreeView<JsonRow> responseTree;
+  private TextFlow rawJsonFlow;
+  private ScrollPane rawJsonScroll;
+  private HBox viewToggleBox;
+  private ToggleButton treeToggleBtn;
+  private ToggleButton rawToggleBtn;
   private Label statusLabel;
   private Label timeLabel;
   private Button sendBtn;
+
+  // Whether the last response parsed as a JSON object/array - the only case where a tree or a
+  // highlighted raw view makes sense. Read by updateVisibleView() so the toggle listener can
+  // recompute visibility without needing the JsonNode itself.
+  private boolean hasContainerJson;
+  private boolean rawModeSelected;
 
   private final RequestTabViewModel vm;
 
@@ -145,7 +165,17 @@ public final class RequestTabController implements Component<VBox> {
     timeLabel.setId("timeLabel");
     timeLabel.getStyleClass().add(Styles.TEXT_MUTED);
 
-    final var statusRow = new HBox(10, statusLabel, new Separator(Orientation.VERTICAL), timeLabel);
+    final var spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+
+    final var statusRow =
+        new HBox(
+            10,
+            statusLabel,
+            new Separator(Orientation.VERTICAL),
+            timeLabel,
+            spacer,
+            buildViewToggle());
     statusRow.setAlignment(Pos.CENTER_LEFT);
 
     final var card = new Card();
@@ -165,10 +195,50 @@ public final class RequestTabController implements Component<VBox> {
   }
 
   /**
-   * The card body is either a syntax-highlighted, collapsible JSON tree (once the response has
-   * parsed as an object or array) or a plain text area (the initial empty state, and non-JSON
-   * bodies) - both live in the same {@link StackPane}, and {@link #showResponseTree(boolean)}
-   * toggles which one is visible.
+   * A small "Tree | Raw" segmented control that picks how a JSON response is displayed. Hidden
+   * whenever the response isn't a JSON object/array, since neither view applies to plain text or
+   * scalar bodies.
+   */
+  private HBox buildViewToggle() {
+    treeToggleBtn = new ToggleButton("Tree");
+    treeToggleBtn.setId("treeToggleBtn");
+    treeToggleBtn.getStyleClass().addAll(Styles.BUTTON_OUTLINED, Styles.SMALL, Styles.LEFT_PILL);
+
+    rawToggleBtn = new ToggleButton("Raw");
+    rawToggleBtn.setId("rawToggleBtn");
+    rawToggleBtn.getStyleClass().addAll(Styles.BUTTON_OUTLINED, Styles.SMALL, Styles.RIGHT_PILL);
+
+    final var group = new ToggleGroup();
+    treeToggleBtn.setToggleGroup(group);
+    rawToggleBtn.setToggleGroup(group);
+    treeToggleBtn.setSelected(true);
+
+    group
+        .selectedToggleProperty()
+        .addListener(
+            (_, oldToggle, newToggle) -> {
+              if (newToggle == null) {
+                // A ToggleGroup allows clicking the active toggle to deselect it; a view always
+                // needs exactly one mode selected, so put the old one straight back.
+                oldToggle.setSelected(true);
+                return;
+              }
+              rawModeSelected = newToggle == rawToggleBtn;
+              updateVisibleView();
+            });
+
+    viewToggleBox = new HBox(6, treeToggleBtn, rawToggleBtn);
+    viewToggleBox.setId("viewToggleBox");
+    viewToggleBox.setAlignment(Pos.CENTER_RIGHT);
+    viewToggleBox.setVisible(false);
+    viewToggleBox.setManaged(false);
+    return viewToggleBox;
+  }
+
+  /**
+   * The card body is one of three views sharing a {@link StackPane}: the plain text area (initial
+   * empty state, and non-JSON or scalar bodies), the collapsible tree, or the highlighted raw
+   * JSON text - {@link #updateVisibleView()} toggles which one is visible.
    */
   private StackPane buildResponseBody() {
     responseArea = new TextArea();
@@ -187,12 +257,27 @@ public final class RequestTabController implements Component<VBox> {
     responseTree.setMaxHeight(Double.MAX_VALUE);
     responseTree.setMaxWidth(Double.MAX_VALUE);
 
-    final var stack = new StackPane(responseArea, responseTree);
+    rawJsonFlow = new TextFlow();
+    rawJsonFlow.getStyleClass().add(Styles.TEXT_SMALL);
+    rawJsonFlow.setStyle("-fx-font-family: 'Menlo', 'Consolas', monospace;");
+
+    rawJsonScroll = new ScrollPane(rawJsonFlow);
+    rawJsonScroll.setId("rawJsonView");
+    rawJsonScroll.setFitToWidth(true);
+    rawJsonScroll.getStyleClass().add(Tweaks.EDGE_TO_EDGE);
+    rawJsonScroll.setMaxHeight(Double.MAX_VALUE);
+    rawJsonScroll.setMaxWidth(Double.MAX_VALUE);
+
+    final var stack = new StackPane(responseArea, responseTree, rawJsonScroll);
     VBox.setVgrow(stack, Priority.ALWAYS);
     return stack;
   }
 
-  /** A tree cell rendering a {@link JsonRow} as "key: value", colored by JSON value type. */
+  /**
+   * A tree cell rendering a {@link JsonRow} as "key: value", colored by JSON value type, preceded
+   * by a thin vertical guide line per ancestor level beyond the top one so a deeply nested group
+   * stays visually traceable back to where it opened.
+   */
   private TreeCell<JsonRow> jsonCell() {
     return new TreeCell<>() {
       @Override
@@ -207,10 +292,35 @@ public final class RequestTabController implements Component<VBox> {
         key.setFill(JSON_KEY_COLOR);
         final var value = new Text(row.valuePreview());
         value.setFill(jsonValueColor(row));
-        setGraphic(new TextFlow(key, value));
+        final var content = new TextFlow(key, value);
+
+        final var level =
+            getTreeView() == null ? 0 : getTreeView().getTreeItemLevel(getTreeItem());
+        final var line = new HBox(buildIndentGuides(level), content);
+        line.setAlignment(Pos.CENTER_LEFT);
+        setGraphic(line);
         setText(null);
       }
     };
+  }
+
+  /**
+   * One thin vertical line per ancestor level beyond the first - the root's direct children (the
+   * top-level JSON fields) already read as a flat, un-nested list thanks to the tree's own
+   * indentation, so they get none.
+   */
+  private Region buildIndentGuides(final int level) {
+    final var guides = new HBox();
+    for (var i = 1; i < level; i++) {
+      final var guide = new Region();
+      guide.setPrefWidth(INDENT_GUIDE_WIDTH);
+      guide.setMinWidth(INDENT_GUIDE_WIDTH);
+      guide.setStyle(
+          "-fx-border-color: transparent transparent transparent -color-border-default; "
+              + "-fx-border-width: 0 0 0 1;");
+      guides.getChildren().add(guide);
+    }
+    return guides;
   }
 
   private Color jsonValueColor(final JsonRow row) {
@@ -223,17 +333,99 @@ public final class RequestTabController implements Component<VBox> {
     return JSON_SCALAR_COLOR;
   }
 
-  private void updateResponseTree(final JsonNode json) {
-    final var isContainer = json != null && (json.isObject() || json.isArray());
-    responseTree.setRoot(isContainer ? JsonTreeBuilder.build("root", json) : null);
-    showResponseTree(isContainer);
+  /** Rebuilds the tree and the raw view for a new response, then shows whichever is selected. */
+  private void updateResponseViews(final JsonNode json) {
+    hasContainerJson = json != null && (json.isObject() || json.isArray());
+    responseTree.setRoot(hasContainerJson ? JsonTreeBuilder.build("root", json) : null);
+    rawJsonFlow.getChildren().setAll(hasContainerJson ? buildRawJsonNodes(json) : List.of());
+    viewToggleBox.setVisible(hasContainerJson);
+    viewToggleBox.setManaged(hasContainerJson);
+    updateVisibleView();
   }
 
-  private void showResponseTree(final boolean showTree) {
+  private void updateVisibleView() {
+    final var showTree = hasContainerJson && !rawModeSelected;
+    final var showRaw = hasContainerJson && rawModeSelected;
     responseTree.setVisible(showTree);
     responseTree.setManaged(showTree);
-    responseArea.setVisible(!showTree);
-    responseArea.setManaged(!showTree);
+    rawJsonScroll.setVisible(showRaw);
+    rawJsonScroll.setManaged(showRaw);
+    responseArea.setVisible(!hasContainerJson);
+    responseArea.setManaged(!hasContainerJson);
+  }
+
+  /**
+   * Renders a JSON value as pretty-printed, colored {@link Text} runs - punctuation (braces,
+   * brackets, colons, commas) is muted so it reads as structure rather than content, while keys
+   * and values keep the same palette as the tree. This reproduces the response exactly as the API
+   * sent it, unlike the tree's per-row size previews, for anyone who wants to see the whole
+   * document at once.
+   */
+  private List<Text> buildRawJsonNodes(final JsonNode json) {
+    final var out = new ArrayList<Text>();
+    appendJson(out, json, 0);
+    return out;
+  }
+
+  private void appendJson(final List<Text> out, final JsonNode node, final int depth) {
+    if (node.isObject()) {
+      final var fields = new ArrayList<Map.Entry<String, JsonNode>>();
+      node.fields().forEachRemaining(fields::add);
+      if (fields.isEmpty()) {
+        appendPunct(out, "{}");
+        return;
+      }
+      appendPunct(out, "{\n");
+      for (var i = 0; i < fields.size(); i++) {
+        final var entry = fields.get(i);
+        appendPlain(out, indent(depth + 1));
+        appendColored(out, "\"" + entry.getKey() + "\"", JSON_KEY_COLOR);
+        appendPunct(out, ": ");
+        appendJson(out, entry.getValue(), depth + 1);
+        appendPunct(out, i < fields.size() - 1 ? ",\n" : "\n");
+      }
+      appendPlain(out, indent(depth));
+      appendPunct(out, "}");
+    } else if (node.isArray()) {
+      if (node.size() == 0) {
+        appendPunct(out, "[]");
+        return;
+      }
+      appendPunct(out, "[\n");
+      for (var i = 0; i < node.size(); i++) {
+        appendPlain(out, indent(depth + 1));
+        appendJson(out, node.get(i), depth + 1);
+        appendPunct(out, i < node.size() - 1 ? ",\n" : "\n");
+      }
+      appendPlain(out, indent(depth));
+      appendPunct(out, "]");
+    } else if (node.isTextual()) {
+      appendColored(out, "\"" + node.asText() + "\"", JSON_STRING_COLOR);
+    } else if (node.isNull()) {
+      appendColored(out, "null", JSON_SCALAR_COLOR);
+    } else {
+      appendColored(out, node.asText(), JSON_SCALAR_COLOR);
+    }
+  }
+
+  private static String indent(final int depth) {
+    return INDENT_UNIT.repeat(depth);
+  }
+
+  private void appendPlain(final List<Text> out, final String text) {
+    out.add(new Text(text));
+  }
+
+  private void appendPunct(final List<Text> out, final String text) {
+    final var node = new Text(text);
+    node.setFill(JSON_CONTAINER_COLOR);
+    out.add(node);
+  }
+
+  private void appendColored(final List<Text> out, final String text, final Color color) {
+    final var node = new Text(text);
+    node.setFill(color);
+    out.add(node);
   }
 
   private void setupBindings() {
@@ -247,8 +439,8 @@ public final class RequestTabController implements Component<VBox> {
     statusLabel.textProperty().bind(vm.statusText);
     timeLabel.textProperty().bind(vm.timeText);
 
-    vm.responseJson.addListener((_, _, json) -> updateResponseTree(json));
-    updateResponseTree(vm.responseJson.get());
+    vm.responseJson.addListener((_, _, json) -> updateResponseViews(json));
+    updateResponseViews(vm.responseJson.get());
 
     vm.statusClass.addListener(
         (_, oldClass, newClass) -> {
