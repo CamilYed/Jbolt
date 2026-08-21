@@ -5,11 +5,10 @@ import github.com.camilyed.jbolt.infrastructure.http.HttpInfrastructure;
 import github.com.camilyed.jbolt.ui.MainController;
 import github.com.camilyed.jbolt.ui.RequestTabController;
 import github.com.camilyed.jbolt.ui.model.RequestTabViewModel;
-import github.com.camilyed.jbolt.ui.service.FxmlViewLoader;
+import github.com.camilyed.jbolt.ui.service.ComponentViewLoader;
 import github.com.camilyed.jbolt.ui.service.UiMessageService;
 import github.com.camilyed.jbolt.ui.service.ViewLoader;
 import javafx.application.Application;
-import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
@@ -24,31 +23,23 @@ public final class App extends Application {
         final var httpEngine = HttpInfrastructure.defaultEngine();
         this.requestExecutionService = new RequestExecutionService(httpEngine);
         this.uiMessageService = new UiMessageService();
-        this.viewLoader = new FxmlViewLoader(this::createController);
+        this.viewLoader = new ComponentViewLoader(this::newRequestTabController);
     }
 
     @Override
-    public void start(final Stage stage) throws Exception {
-        final var loader = new FXMLLoader(getClass().getResource("/ui/main-view.fxml"));
-        loader.setControllerFactory(this::createController);
+    public void start(final Stage stage) {
+        final var mainController = new MainController(viewLoader, uiMessageService);
+        final var root = mainController.build();
+        mainController.initialize();
 
-        final var scene = new Scene(loader.load(), 1200, 800);
+        final var scene = new Scene(root, 1200, 800);
         stage.setTitle("JBolt");
         stage.setScene(scene);
         stage.show();
     }
 
-    private Object createController(final Class<?> type) {
-        if (type == MainController.class) {
-            return new MainController(viewLoader, uiMessageService);
-        }
-
-        if (type == RequestTabController.class) {
-            final var vm = new RequestTabViewModel(requestExecutionService);
-            return new RequestTabController(vm);
-        }
-
-        throw new IllegalArgumentException("Unknown controller type requested: " + type.getName());
+    private RequestTabController newRequestTabController() {
+        return new RequestTabController(new RequestTabViewModel(requestExecutionService));
     }
 
     public static void main(final String[] args) {

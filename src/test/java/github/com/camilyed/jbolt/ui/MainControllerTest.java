@@ -109,4 +109,20 @@ class MainControllerTest {
         // then
         assertThat(tabPane.getTabs()).hasSize(1);
     }
+
+    @Test
+    @DisplayName("build should assemble the collections pane and the request tabs with a '+' tab")
+    void shouldBuildMainLayout() {
+        // given
+        final ViewLoader fakeLoader = _ -> Result.success(new Region());
+        final var controller = new MainController(fakeLoader, fakeUiService);
+
+        // when
+        final var root = controller.build();
+
+        // then
+        assertThat(root.getLeft()).isNotNull();
+        assertThat(controller.requestTabs.getTabs()).hasSize(1);
+        assertThat(controller.requestTabs.getTabs().getFirst().getText()).isEqualTo("+");
+    }
 }
