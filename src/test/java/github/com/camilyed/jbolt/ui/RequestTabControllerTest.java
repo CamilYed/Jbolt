@@ -2,6 +2,7 @@ package github.com.camilyed.jbolt.ui;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import github.com.camilyed.jbolt.application.execution.RequestExecutionService;
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
 import github.com.camilyed.jbolt.testing.dsl.fakes.FakeHttpEngine;
@@ -12,6 +13,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TreeView;
 import javafx.scene.layout.VBox;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +21,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class RequestTabControllerTest {
+
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private RequestTabViewModel vm;
   private RequestTabController controller;
@@ -40,10 +44,10 @@ class RequestTabControllerTest {
   }
 
   /**
-   * {@code SplitPane}/{@code TabPane} are {@code Control}s: their item nodes aren't exposed to
-   * {@code Node.lookup()} until a {@code Skin} exists, which normally only happens once a node is
-   * part of a shown {@code Scene}. Attaching a {@code Scene} and forcing a CSS+layout pass gets the
-   * skins created synchronously, without needing an actual {@code Stage}.
+   * {@code SplitPane}/{@code TabPane}/{@code Card} are {@code Control}s: their item nodes aren't
+   * exposed to {@code Node.lookup()} until a {@code Skin} exists, which normally only happens once
+   * a node is part of a shown {@code Scene}. Attaching a {@code Scene} and forcing a CSS+layout
+   * pass gets the skins created synchronously, without needing an actual {@code Stage}.
    */
   private static VBox realized(final RequestTabController controller) {
     final var root = controller.build();
@@ -121,5 +125,52 @@ class RequestTabControllerTest {
 
     // then
     assertThat(methodCombo.getItems()).containsExactly(HttpMethod.values());
+  }
+
+  @Test
+  @DisplayName("should show the plain response area and hide the json tree before any response")
+  void shouldShowTextAreaBeforeAnyResponse() {
+    // given
+    final var root = realized(controller);
+    final var responseArea = (TextArea) root.lookup("#responseArea");
+    final var responseTree = (TreeView<?>) root.lookup("#responseTree");
+
+    // then
+    assertThat(responseArea.isVisible()).isTrue();
+    assertThat(responseTree.isVisible()).isFalse();
+  }
+
+  @Test
+  @DisplayName("should switch to the json tree and hide the text area for object responses")
+  void shouldShowJsonTreeForObjectResponse() throws Exception {
+    // given
+    final var root = realized(controller);
+    final var responseArea = (TextArea) root.lookup("#responseArea");
+    final var responseTree = (TreeView<?>) root.lookup("#responseTree");
+
+    // when
+    vm.responseJson.set(MAPPER.readTree("{\"id\":1,\"title\":\"Mascara\"}"));
+
+    // then
+    assertThat(responseTree.isVisible()).isTrue();
+    assertThat(responseArea.isVisible()).isFalse();
+    assertThat(responseTree.getRoot().getChildren()).hasSize(2);
+  }
+
+  @Test
+  @DisplayName("should switch back to the text area once the json tree is cleared")
+  void shouldFallBackToTextAreaWhenJsonCleared() throws Exception {
+    // given
+    final var root = realized(controller);
+    final var responseArea = (TextArea) root.lookup("#responseArea");
+    final var responseTree = (TreeView<?>) root.lookup("#responseTree");
+    vm.responseJson.set(MAPPER.readTree("{\"id\":1}"));
+
+    // when
+    vm.responseJson.set(null);
+
+    // then
+    assertThat(responseArea.isVisible()).isTrue();
+    assertThat(responseTree.isVisible()).isFalse();
   }
 }

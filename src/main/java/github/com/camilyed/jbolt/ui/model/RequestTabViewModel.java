@@ -1,5 +1,6 @@
 package github.com.camilyed.jbolt.ui.model;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import github.com.camilyed.jbolt.application.execution.RequestExecutionService;
 import github.com.camilyed.jbolt.common.result.Result;
@@ -33,6 +34,10 @@ public final class RequestTabViewModel {
   public final StringProperty statusText = new SimpleStringProperty("---");
   public final StringProperty timeText = new SimpleStringProperty("--- ms");
   public final StringProperty statusClass = new SimpleStringProperty("");
+  // Parsed form of responseBody, set only when the body is a JSON object or array - the view uses
+  // this to render a collapsible, syntax-highlighted tree instead of a flat text block. Null for
+  // non-JSON bodies, JSON scalars, empty responses, and failures.
+  public final ObjectProperty<JsonNode> responseJson = new SimpleObjectProperty<>();
 
   // --- UI STATE ---
   public final BooleanProperty loading = new SimpleBooleanProperty(false);
@@ -78,13 +83,16 @@ public final class RequestTabViewModel {
     try {
       final var body = resp.body();
       if (body != null && !body.isBlank()) {
-        final var json = mapper.readValue(body, Object.class);
+        final var json = mapper.readTree(body);
         responseBody.set(mapper.writerWithDefaultPrettyPrinter().writeValueAsString(json));
+        responseJson.set(json);
       } else {
         responseBody.set("[Empty Response]");
+        responseJson.set(null);
       }
     } catch (final Exception _) {
       responseBody.set(resp.body());
+      responseJson.set(null);
     }
   }
 
@@ -92,6 +100,7 @@ public final class RequestTabViewModel {
     statusText.set("ERROR");
     statusClass.set("danger");
     timeText.set("---");
+    responseJson.set(null);
 
     final var cause = ex.getCause() != null ? ex.getCause() : ex;
     responseBody.set("Execution Failed:\n" + cause.getMessage());

@@ -61,6 +61,49 @@ class RequestTabViewModelTest {
   }
 
   @Test
+  @DisplayName("Should expose the parsed JSON tree for an object response")
+  void shouldExposeParsedJsonForObjectResponse() {
+    // given
+    final var response = new HttpResponse(200, "{\"id\":1,\"name\":\"Mascara\"}", Map.of(), 100);
+    fakeEngine.willReturn(response);
+    vm.url.set("http://test.com");
+
+    // when
+    vm.sendRequest();
+
+    // then
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              assertThat(vm.responseJson.get()).isNotNull();
+              assertThat(vm.responseJson.get().isObject()).isTrue();
+              assertThat(vm.responseJson.get().get("name").asText()).isEqualTo("Mascara");
+            });
+  }
+
+  @Test
+  @DisplayName("Should not expose a parsed JSON tree for a scalar response")
+  void shouldNotExposeParsedJsonForScalarResponse() {
+    // given
+    final var response = new HttpResponse(200, "42", Map.of(), 100);
+    fakeEngine.willReturn(response);
+    vm.url.set("http://test.com");
+
+    // when
+    vm.sendRequest();
+
+    // then
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              assertThat(vm.statusText.get()).isEqualTo("200");
+              assertThat(vm.responseJson.get().isValueNode()).isTrue();
+            });
+  }
+
+  @Test
   @DisplayName("Should handle empty response body gracefully")
   void shouldHandleEmptyBody() {
     // given
@@ -78,6 +121,7 @@ class RequestTabViewModelTest {
             () -> {
               assertThat(vm.responseBody.get()).isEqualTo("[Empty Response]");
               assertThat(vm.statusText.get()).isEqualTo("204");
+              assertThat(vm.responseJson.get()).isNull();
             });
   }
 
@@ -99,6 +143,7 @@ class RequestTabViewModelTest {
         .untilAsserted(
             () -> {
               assertThat(vm.responseBody.get()).isEqualTo(invalidJson);
+              assertThat(vm.responseJson.get()).isNull();
             });
   }
 
@@ -122,6 +167,7 @@ class RequestTabViewModelTest {
               assertThat(vm.responseBody.get()).contains(rootMessage);
               assertThat(vm.statusText.get()).isEqualTo("ERROR");
               assertThat(vm.statusClass.get()).isEqualTo("danger");
+              assertThat(vm.responseJson.get()).isNull();
             });
   }
 
