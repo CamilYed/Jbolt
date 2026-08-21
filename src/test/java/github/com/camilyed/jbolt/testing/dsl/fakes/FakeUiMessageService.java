@@ -4,19 +4,19 @@ import github.com.camilyed.jbolt.ui.model.UiError;
 import github.com.camilyed.jbolt.ui.service.UiMessageService;
 
 public final class FakeUiMessageService extends UiMessageService {
-    private UiError capturedError;
+  private UiError capturedError;
 
-    @Override
-    public void showError(final UiError error) {
-        // Do not open a real JavaFX Alert in tests
-        this.capturedError = error;
-    }
+  @Override
+  public void showError(final UiError error) {
+    // Do not open a real JavaFX Alert in tests
+    this.capturedError = error;
+  }
 
-    public UiError getCapturedError() {
-        return capturedError;
-    }
+  public UiError getCapturedError() {
+    return capturedError;
+  }
 
-    public boolean wasErrorShown() {
-        return capturedError != null;
-    }
+  public boolean wasErrorShown() {
+    return capturedError != null;
+  }
 }

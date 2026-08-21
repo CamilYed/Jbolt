@@ -14,35 +14,35 @@ import javafx.stage.Stage;
 
 public final class App extends Application {
 
-    private RequestExecutionService requestExecutionService;
-    private UiMessageService uiMessageService;
-    private ViewLoader viewLoader;
+  private RequestExecutionService requestExecutionService;
+  private UiMessageService uiMessageService;
+  private ViewLoader viewLoader;
 
-    @Override
-    public void init() {
-        final var httpEngine = HttpInfrastructure.defaultEngine();
-        this.requestExecutionService = new RequestExecutionService(httpEngine);
-        this.uiMessageService = new UiMessageService();
-        this.viewLoader = new ComponentViewLoader(this::newRequestTabController);
-    }
+  @Override
+  public void init() {
+    final var httpEngine = HttpInfrastructure.defaultEngine();
+    this.requestExecutionService = new RequestExecutionService(httpEngine);
+    this.uiMessageService = new UiMessageService();
+    this.viewLoader = new ComponentViewLoader(this::newRequestTabController);
+  }
 
-    @Override
-    public void start(final Stage stage) {
-        final var mainController = new MainController(viewLoader, uiMessageService);
-        final var root = mainController.build();
-        mainController.initialize();
+  @Override
+  public void start(final Stage stage) {
+    final var mainController = new MainController(viewLoader, uiMessageService);
+    final var root = mainController.build();
+    mainController.initialize();
 
-        final var scene = new Scene(root, 1200, 800);
-        stage.setTitle("JBolt");
-        stage.setScene(scene);
-        stage.show();
-    }
+    final var scene = new Scene(root, 1200, 800);
+    stage.setTitle("JBolt");
+    stage.setScene(scene);
+    stage.show();
+  }
 
-    private RequestTabController newRequestTabController() {
-        return new RequestTabController(new RequestTabViewModel(requestExecutionService));
-    }
+  private RequestTabController newRequestTabController() {
+    return new RequestTabController(new RequestTabViewModel(requestExecutionService));
+  }
 
-    public static void main(final String[] args) {
-        launch(args);
-    }
+  public static void main(final String[] args) {
+    launch(args);
+  }
 }
