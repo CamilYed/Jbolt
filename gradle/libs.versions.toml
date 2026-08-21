@@ -1,0 +1,41 @@
+[versions]
+javafx = "25"
+javafx-plugin = "0.1.0"
+jlink-plugin = "3.1.1"
+atlantafx = "2.1.0"
+jackson = "2.18.2"
+ikonli = "12.4.0"
+spotless = "8.7.0"
+jacoco = "0.8.15"
+sonarqube = "7.3.1.8318"
+junit = "5.11.4"
+junit-platform-launcher = "1.11.4"
+assertj = "3.27.3"
+awaitility = "4.3.0"
+wiremock = "3.13.2"
+testfx = "4.0.18"
+hamcrest = "3.0"
+
+[plugins]
+javafx = { id = "org.openjfx.javafxplugin", version.ref = "javafx-plugin" }
+jlink = { id = "org.beryx.jlink", version.ref = "jlink-plugin" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+sonarqube = { id = "org.sonarqube", version.ref = "sonarqube" }
+
+[libraries]
+atlantafx-base = { module = "io.github.mkpaz:atlantafx-base", version.ref = "atlantafx" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+ikonli-javafx = { module = "org.kordamp.ikonli:ikonli-javafx", version.ref = "ikonli" }
+ikonli-materialdesign2 = { module = "org.kordamp.ikonli:ikonli-materialdesign2-pack", version.ref = "ikonli" }
+javafx-swing = { module = "org.openjfx:javafx-swing", version.ref = "javafx" }
+
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform-launcher" }
+
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
+wiremock = { module = "org.wiremock:wiremock", version.ref = "wiremock" }
+hamcrest = { module = "org.hamcrest:hamcrest", version.ref = "hamcrest" }
+testfx-core = { module = "org.testfx:testfx-core", version.ref = "testfx" }
+testfx-junit5 = { module = "org.testfx:testfx-junit5", version.ref = "testfx" }
