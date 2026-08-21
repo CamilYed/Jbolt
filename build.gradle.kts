@@ -24,9 +24,10 @@ version = providers.gradleProperty("releaseVersion").orElse("1.0.0-SNAPSHOT").ge
 val javafxSdkVersion: String = libs.versions.javafx.get()
 val jacocoToolVersion: String = libs.versions.jacoco.get()
 
-repositories {
-    mavenCentral()
-}
+// No repositories {} block here on purpose: settings.gradle.kts's dependencyResolutionManagement
+// already declares mavenCentral() and sets FAIL_ON_PROJECT_REPOS, so a project-level repositories
+// block here would conflict with that (that's the "prefer settings repositories over project
+// repositories" error) - the settings.gradle.kts declaration is the single source of truth.
 
 java {
     toolchain {
