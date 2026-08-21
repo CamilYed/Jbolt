@@ -16,6 +16,14 @@ plugins {
 group = "com.camilyed.jbolt"
 version = providers.gradleProperty("releaseVersion").orElse("1.0.0-SNAPSHOT").get()
 
+// Read as plain Strings up front, outside any plugin-provided extension's configuration
+// lambda (javafx {}, jacoco {}) - the "libs" version-catalog accessor is generated on Project,
+// and resolving it from inside a nested extension-DSL lambda (a different implicit receiver)
+// has proven unreliable with this plugin combination. Doing the lookup here, at plain script
+// scope, avoids that entirely.
+val javafxSdkVersion: String = libs.versions.javafx.get()
+val jacocoToolVersion: String = libs.versions.jacoco.get()
+
 repositories {
     mavenCentral()
 }
@@ -27,7 +35,7 @@ java {
 }
 
 javafx {
-    version = libs.versions.javafx.get()
+    version = javafxSdkVersion
     modules("javafx.controls", "javafx.graphics")
 }
 
@@ -55,7 +63,7 @@ dependencies {
 }
 
 jacoco {
-    toolVersion = libs.versions.jacoco.get()
+    toolVersion = jacocoToolVersion
 }
 
 spotless {
