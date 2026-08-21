@@ -5,7 +5,6 @@ import atlantafx.base.theme.Styles;
 import atlantafx.base.theme.Tweaks;
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
 import github.com.camilyed.jbolt.ui.model.RequestTabViewModel;
-import java.util.List;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
@@ -23,6 +22,8 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 
 /**
  * Builds a single request tab: the method/URL/send bar, a request-body/headers editor, and a
@@ -31,11 +32,15 @@ import javafx.scene.layout.VBox;
  */
 public final class RequestTabController implements Component<VBox> {
 
-  // The full palette of AtlantaFX semantic color classes this view ever toggles onto the method
-  // combo, kept together so a toggle can always cleanly remove every previous color before adding
-  // the new one instead of accumulating stale classes.
-  private static final List<String> METHOD_COLOR_CLASSES =
-      List.of(Styles.SUCCESS, Styles.ACCENT, Styles.WARNING, Styles.DANGER);
+  // Postman-style method colors. These are plain JavaFX Color literals rather than AtlantaFX
+  // Styles classes because a CSS class applied to the ComboBox root isn't guaranteed to reach
+  // deep enough into its skin to tint the box itself - a small colored dot next to the method
+  // name, drawn directly, renders identically regardless of the control's internal structure.
+  private static final Color GET_COLOR = Color.web("#3fb950");
+  private static final Color POST_COLOR = Color.web("#58a6ff");
+  private static final Color PUT_PATCH_COLOR = Color.web("#d29922");
+  private static final Color DELETE_COLOR = Color.web("#f85149");
+  private static final Color OTHER_METHOD_COLOR = Color.web("#8b949e");
 
   private ComboBox<HttpMethod> methodCombo;
   private TextField urlField;
@@ -67,8 +72,10 @@ public final class RequestTabController implements Component<VBox> {
   private HBox buildRequestBar() {
     methodCombo = new ComboBox<>();
     methodCombo.setId("methodCombo");
-    methodCombo.setPrefWidth(120);
+    methodCombo.setPrefWidth(130);
     methodCombo.getStyleClass().add(Styles.ROUNDED);
+    methodCombo.setButtonCell(methodCell());
+    methodCombo.setCellFactory(_ -> methodCell());
 
     urlField = new TextField();
     urlField.setId("urlField");
@@ -143,23 +150,18 @@ public final class RequestTabController implements Component<VBox> {
     card.getStyleClass().add(Styles.ELEVATED_1);
     card.setMaxHeight(Double.MAX_VALUE);
     card.setMaxWidth(Double.MAX_VALUE);
+    // ELEVATED_1's shadow alone reads as barely-there on PrimerDark, so give the card an explicit,
+    // visible edge using the same AtlantaFX theme token already confirmed to render correctly for
+    // the sidebar separator.
+    card.setStyle(
+        "-fx-border-color: -color-border-default; -fx-border-width: 1; "
+            + "-fx-border-radius: 8; -fx-background-radius: 8;");
     return card;
   }
 
   private void setupBindings() {
-    methodCombo.setCellFactory(
-        _ ->
-            new ListCell<>() {
-              @Override
-              protected void updateItem(final HttpMethod item, final boolean empty) {
-                super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.name());
-              }
-            });
     methodCombo.setItems(vm.methods);
     methodCombo.valueProperty().bindBidirectional(vm.method);
-    methodCombo.valueProperty().addListener((_, _, newMethod) -> applyMethodColor(newMethod));
-    applyMethodColor(vm.method.get());
 
     urlField.textProperty().bindBidirectional(vm.url);
     requestBodyArea.textProperty().bindBidirectional(vm.requestBody);
@@ -181,26 +183,39 @@ public final class RequestTabController implements Component<VBox> {
     sendBtn.disableProperty().bind(vm.loading.or(vm.url.isEmpty()));
   }
 
-  /**
-   * Gives the method combo a Postman-style color hint (green GET, blue POST, amber PUT/PATCH, red
-   * DELETE) using only AtlantaFX's built-in semantic color classes - no custom stylesheet needed.
-   */
-  private void applyMethodColor(final HttpMethod method) {
-    methodCombo.getStyleClass().removeAll(METHOD_COLOR_CLASSES);
-    if (method == null) {
-      return;
-    }
-    final var colorClass =
-        switch (method) {
-          case GET -> Styles.SUCCESS;
-          case POST -> Styles.ACCENT;
-          case PUT, PATCH -> Styles.WARNING;
-          case DELETE -> Styles.DANGER;
-          case HEAD, OPTIONS -> null;
-        };
-    if (colorClass != null) {
-      methodCombo.getStyleClass().add(colorClass);
-    }
+  /** A list cell showing the method name next to a colored dot - used both for the combo's own
+   * button face and for each row in its dropdown, so the selected method reads at a glance. */
+  private ListCell<HttpMethod> methodCell() {
+    return new ListCell<>() {
+      private final Circle dot = new Circle(4);
+
+      {
+        setGraphic(dot);
+        setGraphicTextGap(8);
+        getStyleClass().add(Styles.TEXT_BOLD);
+      }
+
+      @Override
+      protected void updateItem(final HttpMethod item, final boolean empty) {
+        super.updateItem(item, empty);
+        if (empty || item == null) {
+          setText(null);
+        } else {
+          setText(item.name());
+          dot.setFill(methodColor(item));
+        }
+      }
+    };
+  }
+
+  private Color methodColor(final HttpMethod method) {
+    return switch (method) {
+      case GET -> GET_COLOR;
+      case POST -> POST_COLOR;
+      case PUT, PATCH -> PUT_PATCH_COLOR;
+      case DELETE -> DELETE_COLOR;
+      case HEAD, OPTIONS -> OTHER_METHOD_COLOR;
+    };
   }
 
   private void onSend() {
