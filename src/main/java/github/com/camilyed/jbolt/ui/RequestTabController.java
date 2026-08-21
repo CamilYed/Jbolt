@@ -7,11 +7,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
 import github.com.camilyed.jbolt.ui.model.RequestTabViewModel;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -82,6 +84,13 @@ public final class RequestTabController implements Component<VBox> {
   // recompute visibility without needing the JsonNode itself.
   private boolean hasContainerJson;
   private boolean rawModeSelected;
+
+  // Which containers are collapsed in the raw view, keyed by node identity, and the JsonNode the
+  // raw view was last built from - both reset whenever a new response arrives, since a stale
+  // JsonNode as a map key would otherwise leak every past response's tree for the tab's lifetime.
+  private final Map<JsonNode, Boolean> rawFoldedNodes = new IdentityHashMap<>();
+  private JsonNode currentJson;
+  private int foldIdSeq;
 
   private final RequestTabViewModel vm;
 
@@ -258,6 +267,7 @@ public final class RequestTabController implements Component<VBox> {
     responseTree.setMaxWidth(Double.MAX_VALUE);
 
     rawJsonFlow = new TextFlow();
+    rawJsonFlow.setId("rawJsonFlow");
     rawJsonFlow.getStyleClass().add(Styles.TEXT_SMALL);
     rawJsonFlow.setStyle("-fx-font-family: 'Menlo', 'Consolas', monospace;");
 
@@ -336,11 +346,18 @@ public final class RequestTabController implements Component<VBox> {
   /** Rebuilds the tree and the raw view for a new response, then shows whichever is selected. */
   private void updateResponseViews(final JsonNode json) {
     hasContainerJson = json != null && (json.isObject() || json.isArray());
+    currentJson = json;
+    rawFoldedNodes.clear();
     responseTree.setRoot(hasContainerJson ? JsonTreeBuilder.build("root", json) : null);
-    rawJsonFlow.getChildren().setAll(hasContainerJson ? buildRawJsonNodes(json) : List.of());
+    refreshRawView();
     viewToggleBox.setVisible(hasContainerJson);
     viewToggleBox.setManaged(hasContainerJson);
     updateVisibleView();
+  }
+
+  /** Re-renders the raw view from {@link #currentJson} and the current fold state. */
+  private void refreshRawView() {
+    rawJsonFlow.getChildren().setAll(hasContainerJson ? buildRawJsonNodes(currentJson) : List.of());
   }
 
   private void updateVisibleView() {
@@ -359,9 +376,12 @@ public final class RequestTabController implements Component<VBox> {
    * brackets, colons, commas) is muted so it reads as structure rather than content, while keys
    * and values keep the same palette as the tree. This reproduces the response exactly as the API
    * sent it, unlike the tree's per-row size previews, for anyone who wants to see the whole
-   * document at once.
+   * document at once. Every object/array's opening bracket is itself a clickable {@link
+   * #foldToggle(JsonNode, String)} that collapses it to a "{…}"/"[…]" placeholder, the same
+   * gesture a code editor's gutter fold icon offers, without needing a gutter here.
    */
   private List<Text> buildRawJsonNodes(final JsonNode json) {
+    foldIdSeq = 0;
     final var out = new ArrayList<Text>();
     appendJson(out, json, 0);
     return out;
@@ -375,7 +395,12 @@ public final class RequestTabController implements Component<VBox> {
         appendPunct(out, "{}");
         return;
       }
-      appendPunct(out, "{\n");
+      out.add(foldToggle(node, "{"));
+      if (isFolded(node)) {
+        appendPunct(out, "…}");
+        return;
+      }
+      appendPlain(out, "\n");
       for (var i = 0; i < fields.size(); i++) {
         final var entry = fields.get(i);
         appendPlain(out, indent(depth + 1));
@@ -391,7 +416,12 @@ public final class RequestTabController implements Component<VBox> {
         appendPunct(out, "[]");
         return;
       }
-      appendPunct(out, "[\n");
+      out.add(foldToggle(node, "["));
+      if (isFolded(node)) {
+        appendPunct(out, "…]");
+        return;
+      }
+      appendPlain(out, "\n");
       for (var i = 0; i < node.size(); i++) {
         appendPlain(out, indent(depth + 1));
         appendJson(out, node.get(i), depth + 1);
@@ -406,6 +436,29 @@ public final class RequestTabController implements Component<VBox> {
     } else {
       appendColored(out, node.asText(), JSON_SCALAR_COLOR);
     }
+  }
+
+  private boolean isFolded(final JsonNode node) {
+    return rawFoldedNodes.getOrDefault(node, Boolean.FALSE);
+  }
+
+  /**
+   * A clickable "{" or "[" that toggles its own container's fold state and re-renders the raw
+   * view. IDs are assigned in traversal order ("fold-0", "fold-1", …) purely so tests can target a
+   * specific container without depending on JSON key names, which may contain characters a CSS id
+   * selector can't express.
+   */
+  private Text foldToggle(final JsonNode node, final String openChar) {
+    final var text = new Text(openChar);
+    text.setId("fold-" + foldIdSeq++);
+    text.setFill(JSON_CONTAINER_COLOR);
+    text.setCursor(Cursor.HAND);
+    text.setOnMouseClicked(
+        _ -> {
+          rawFoldedNodes.put(node, !isFolded(node));
+          refreshRawView();
+        });
+    return text;
   }
 
   private static String indent(final int depth) {

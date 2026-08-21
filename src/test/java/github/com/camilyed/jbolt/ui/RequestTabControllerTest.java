@@ -16,6 +16,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.TreeView;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.TextFlow;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -240,5 +241,43 @@ class RequestTabControllerTest {
     // then
     assertThat(responseTree.isVisible()).isTrue();
     assertThat(rawJsonView.isVisible()).isFalse();
+  }
+
+  @Test
+  @DisplayName("should collapse a container to a placeholder when its fold toggle is clicked")
+  void shouldFoldContainerInRawView() throws Exception {
+    // given
+    final var root = realized(controller);
+    vm.responseJson.set(MAPPER.readTree("{\"dimensions\":{\"width\":1,\"height\":2}}"));
+    final var rawToggleBtn = (ToggleButton) root.lookup("#rawToggleBtn");
+    rawToggleBtn.fire();
+    final var rawJsonFlow = (TextFlow) root.lookup("#rawJsonFlow");
+    final var childCountBeforeFold = rawJsonFlow.getChildren().size();
+    final var dimensionsFoldToggle = rawJsonFlow.lookup("#fold-1");
+
+    // when
+    dimensionsFoldToggle.getOnMouseClicked().handle(null);
+
+    // then
+    assertThat(rawJsonFlow.getChildren().size()).isLessThan(childCountBeforeFold);
+  }
+
+  @Test
+  @DisplayName("should expand a folded container again when its toggle is clicked a second time")
+  void shouldUnfoldContainerInRawView() throws Exception {
+    // given
+    final var root = realized(controller);
+    vm.responseJson.set(MAPPER.readTree("{\"dimensions\":{\"width\":1,\"height\":2}}"));
+    final var rawToggleBtn = (ToggleButton) root.lookup("#rawToggleBtn");
+    rawToggleBtn.fire();
+    final var rawJsonFlow = (TextFlow) root.lookup("#rawJsonFlow");
+    final var childCountBeforeFold = rawJsonFlow.getChildren().size();
+    rawJsonFlow.lookup("#fold-1").getOnMouseClicked().handle(null);
+
+    // when
+    rawJsonFlow.lookup("#fold-1").getOnMouseClicked().handle(null);
+
+    // then
+    assertThat(rawJsonFlow.getChildren().size()).isEqualTo(childCountBeforeFold);
   }
 }
