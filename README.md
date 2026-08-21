@@ -9,26 +9,26 @@ Unlike Electron-based alternatives, JBolt leverages **Java 25**, **JavaFX**, and
 
 ## 🚀 Key Features
 
-- **Native Performance**  
+- **Native Performance**
   Runs on the JVM with native rendering (Metal on macOS, DirectX on Windows).
 
-- **Built-in Stress Testing**  
+- **Built-in Stress Testing**
   Load generator powered by **Virtual Threads**, capable of simulating thousands of concurrent requests.
 
-- **Collection Management**  
+- **Collection Management**
   Import and export **Postman collections (v2.1)**.
 
-- **Privacy First**  
+- **Privacy First**
   100% offline. No cloud, no accounts, no telemetry.
 
 ---
 
 ## 🛠 Tech Stack
 
-- **Language:** Java 25  
-- **UI Framework:** JavaFX 25 + AtlantaFX (modern UI, dark mode ready)  
-- **Build System:** Gradle (Kotlin DSL)  
-- **Testing:** JUnit 5, TestFX  
+- **Language:** Java 25
+- **UI Framework:** JavaFX 25 + AtlantaFX (modern UI, dark mode ready)
+- **Build System:** Gradle (Kotlin DSL)
+- **Testing:** JUnit 5, TestFX
 
 ---
 

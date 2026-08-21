@@ -1,30 +1,48 @@
 package github.com.camilyed.jbolt;
 
-import atlantafx.base.theme.PrimerDark;
+import github.com.camilyed.jbolt.application.execution.RequestExecutionService;
+import github.com.camilyed.jbolt.infrastructure.http.HttpInfrastructure;
+import github.com.camilyed.jbolt.ui.MainController;
+import github.com.camilyed.jbolt.ui.RequestTabController;
+import github.com.camilyed.jbolt.ui.model.RequestTabViewModel;
+import github.com.camilyed.jbolt.ui.service.ComponentViewLoader;
+import github.com.camilyed.jbolt.ui.service.UiMessageService;
+import github.com.camilyed.jbolt.ui.service.ViewLoader;
 import javafx.application.Application;
-import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
-public class App extends Application {
+public final class App extends Application {
 
-    private static final String MAIN_VIEW_FXML = "/ui/main-view.fxml";
-    private static final String APP_TITLE = "JBolt | API Tool";
+  private RequestExecutionService requestExecutionService;
+  private UiMessageService uiMessageService;
+  private ViewLoader viewLoader;
 
-    @Override
-    public void start(Stage stage) throws Exception {
-        Application.setUserAgentStylesheet(new PrimerDark().getUserAgentStylesheet());
-        final var fxmlLoader = new FXMLLoader(App.class.getResource(MAIN_VIEW_FXML));
-        final var scene = new Scene(fxmlLoader.load());
-        stage.setTitle(APP_TITLE);
-        stage.setScene(scene);
-        stage.setMinHeight(600);
-        stage.setMinWidth(900);
-        stage.centerOnScreen();
-        stage.show();
-    }
+  @Override
+  public void init() {
+    final var httpEngine = HttpInfrastructure.defaultEngine();
+    this.requestExecutionService = new RequestExecutionService(httpEngine);
+    this.uiMessageService = new UiMessageService();
+    this.viewLoader = new ComponentViewLoader(this::newRequestTabController);
+  }
 
-    public static void main(String[] args) {
-        launch();
-    }
+  @Override
+  public void start(final Stage stage) {
+    final var mainController = new MainController(viewLoader, uiMessageService);
+    final var root = mainController.build();
+    mainController.initialize();
+
+    final var scene = new Scene(root, 1200, 800);
+    stage.setTitle("JBolt");
+    stage.setScene(scene);
+    stage.show();
+  }
+
+  private RequestTabController newRequestTabController() {
+    return new RequestTabController(new RequestTabViewModel(requestExecutionService));
+  }
+
+  public static void main(final String[] args) {
+    launch(args);
+  }
 }
