@@ -61,6 +61,10 @@ public final class RequestTabController implements Component<VBox> {
   private static final Color JSON_STRING_COLOR = Color.web("#a5d6ff");
   private static final Color JSON_SCALAR_COLOR = Color.web("#d2a8ff");
   private static final Color JSON_CONTAINER_COLOR = Color.web("#8b949e");
+  // Hover color for the raw view's fold toggles - the same accent blue used for POST, reused here
+  // as the app's one "this is interactive" signal rather than inventing a second one.
+  private static final Color FOLD_TOGGLE_HOVER_COLOR = Color.web("#58a6ff");
+  private static final String FOLD_TOGGLE_STYLE = "-fx-font-size: 1.25em; -fx-font-weight: bold;";
 
   private static final int INDENT_GUIDE_WIDTH = 14;
   private static final String INDENT_UNIT = "  ";
@@ -444,15 +448,30 @@ public final class RequestTabController implements Component<VBox> {
 
   /**
    * A clickable "{" or "[" that toggles its own container's fold state and re-renders the raw
-   * view. IDs are assigned in traversal order ("fold-0", "fold-1", …) purely so tests can target a
-   * specific container without depending on JSON key names, which may contain characters a CSS id
-   * selector can't express.
+   * view. Rendered noticeably larger and bolder than the surrounding punctuation - at normal text
+   * size a lone bracket reads as inert, too small to comfortably aim at and easy to mistake for
+   * plain structure rather than a control - and it swaps to the accent color with an underline on
+   * hover so the pointer confirms it's interactive before the click even lands. IDs are assigned
+   * in traversal order ("fold-0", "fold-1", …) purely so tests can target a specific container
+   * without depending on JSON key names, which may contain characters a CSS id selector can't
+   * express.
    */
   private Text foldToggle(final JsonNode node, final String openChar) {
     final var text = new Text(openChar);
     text.setId("fold-" + foldIdSeq++);
     text.setFill(JSON_CONTAINER_COLOR);
+    text.setStyle(FOLD_TOGGLE_STYLE);
     text.setCursor(Cursor.HAND);
+    text.setOnMouseEntered(
+        _ -> {
+          text.setFill(FOLD_TOGGLE_HOVER_COLOR);
+          text.setUnderline(true);
+        });
+    text.setOnMouseExited(
+        _ -> {
+          text.setFill(JSON_CONTAINER_COLOR);
+          text.setUnderline(false);
+        });
     text.setOnMouseClicked(
         _ -> {
           rawFoldedNodes.put(node, !isFolded(node));
