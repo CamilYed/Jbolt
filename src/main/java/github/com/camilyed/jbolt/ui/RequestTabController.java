@@ -228,11 +228,11 @@ public final class RequestTabController implements Component<VBox> {
 
   /**
    * A small "Tree | Raw" segmented control that picks how a JSON response is displayed. Only
-   * meaningful for JSON - XML bodies have no tree yet, so {@link #updateResponseViews()} hides
-   * this entirely for XML and shows only the raw view; it's hidden for plain text/scalar bodies
-   * too, since neither view applies there. Raw starts selected: it shows the response exactly as
-   * the server sent it, which is the more legible default before the user has any reason to trust
-   * a tree built from it.
+   * meaningful for JSON - XML bodies have no tree yet, so {@link #updateResponseViews()} hides this
+   * entirely for XML and shows only the raw view; it's hidden for plain text/scalar bodies too,
+   * since neither view applies there. Raw starts selected: it shows the response exactly as the
+   * server sent it, which is the more legible default before the user has any reason to trust a
+   * tree built from it.
    */
   private HBox buildViewToggle() {
     treeToggleBtn = new ToggleButton("Tree");
@@ -391,7 +391,9 @@ public final class RequestTabController implements Component<VBox> {
     updateVisibleView();
   }
 
-  /** JSON wins when the body is a valid object/array; otherwise a parsed XML doc wins; else none. */
+  /**
+   * JSON wins when the body is a valid object/array; otherwise a parsed XML doc wins; else none.
+   */
   private static BodyKind resolveBodyKind(final JsonNode json, final Document xml) {
     if (json != null && (json.isObject() || json.isArray())) {
       return BodyKind.JSON;
@@ -496,8 +498,8 @@ public final class RequestTabController implements Component<VBox> {
   }
 
   /**
-   * A clickable "{" or "[" that toggles its own container's fold state and re-renders the raw
-   * view. IDs are assigned in traversal order ("fold-0", "fold-1", …) purely so tests can target a
+   * A clickable "{" or "[" that toggles its own container's fold state and re-renders the raw view.
+   * IDs are assigned in traversal order ("fold-0", "fold-1", …) purely so tests can target a
    * specific container without depending on JSON key names, which may contain characters a CSS id
    * selector can't express.
    */
@@ -512,12 +514,12 @@ public final class RequestTabController implements Component<VBox> {
   }
 
   /**
-   * Builds a clickable fold-toggle {@link Text} shared by the JSON brace/bracket toggle and the
-   * XML tag-name toggle. Rendered noticeably larger and bolder than the surrounding punctuation -
-   * at normal text size a lone brace or a short tag name reads as inert, too small to comfortably
-   * aim at and easy to mistake for plain structure rather than a control - and it swaps to the
-   * accent color with an underline on hover so the pointer confirms it's interactive before the
-   * click even lands.
+   * Builds a clickable fold-toggle {@link Text} shared by the JSON brace/bracket toggle and the XML
+   * tag-name toggle. Rendered noticeably larger and bolder than the surrounding punctuation - at
+   * normal text size a lone brace or a short tag name reads as inert, too small to comfortably aim
+   * at and easy to mistake for plain structure rather than a control - and it swaps to the accent
+   * color with an underline on hover so the pointer confirms it's interactive before the click even
+   * lands.
    */
   private Text makeFoldToggle(final String label, final Color baseColor, final Runnable onToggle) {
     final var text = new Text(label);
@@ -581,9 +583,7 @@ public final class RequestTabController implements Component<VBox> {
     final var children = xmlChildElements(element);
     appendPunct(out, "<");
     out.add(
-        children.isEmpty()
-            ? plainTagName(element)
-            : xmlFoldToggle(element, element.getTagName()));
+        children.isEmpty() ? plainTagName(element) : xmlFoldToggle(element, element.getTagName()));
     appendXmlAttributes(out, element);
 
     if (children.isEmpty()) {

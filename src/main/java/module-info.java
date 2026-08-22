@@ -3,6 +3,7 @@ module github.com.camilyed.jbolt {
   requires atlantafx.base;
   requires com.fasterxml.jackson.databind;
   requires java.net.http;
+  requires java.xml;
   requires org.kordamp.ikonli.javafx;
   requires org.kordamp.ikonli.materialdesign2;
 

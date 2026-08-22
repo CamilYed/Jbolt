@@ -330,8 +330,7 @@ class RequestTabControllerTest {
   void shouldFoldXmlElementInRawView() throws Exception {
     // given
     final var root = realized(controller);
-    vm.responseXml.set(
-        parseXml("<root><person><name>Alice</name><age>30</age></person></root>"));
+    vm.responseXml.set(parseXml("<root><person><name>Alice</name><age>30</age></person></root>"));
     final var rawJsonFlow = (TextFlow) root.lookup("#rawJsonFlow");
     final var childCountBeforeFold = rawJsonFlow.getChildren().size();
     // fold-0 is the <root> element itself; fold-1 is the nested <person> element.

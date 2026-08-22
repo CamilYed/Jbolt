@@ -105,9 +105,9 @@ public final class RequestTabViewModel {
   }
 
   /**
-   * Picks JSON vs XML rendering for the response body. The Content-Type header decides when
-   * present and unambiguous; otherwise this falls back to sniffing the body's first non-blank
-   * character, since plenty of real APIs (and every fake/test double) omit or mislabel it.
+   * Picks JSON vs XML rendering for the response body. The Content-Type header decides when present
+   * and unambiguous; otherwise this falls back to sniffing the body's first non-blank character,
+   * since plenty of real APIs (and every fake/test double) omit or mislabel it.
    */
   private static boolean looksLikeXml(final Map<String, String> headers, final String body) {
     final var contentType =
@@ -154,8 +154,8 @@ public final class RequestTabViewModel {
 
   /**
    * Parses XML with DTDs and external entities disabled - this document comes straight from
-   * whatever server the user just pointed the client at, so it's untrusted input and gets
-   * hardened against XXE regardless of how unlikely a malicious response seems in practice.
+   * whatever server the user just pointed the client at, so it's untrusted input and gets hardened
+   * against XXE regardless of how unlikely a malicious response seems in practice.
    */
   private static Document parseXml(final String body) throws Exception {
     final var factory = DocumentBuilderFactory.newInstance();
