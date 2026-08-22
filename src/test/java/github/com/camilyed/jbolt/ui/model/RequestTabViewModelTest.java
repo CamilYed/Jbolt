@@ -126,6 +126,29 @@ class RequestTabViewModelTest {
   }
 
   @Test
+  @DisplayName("Should send a header row's value as edited in place, not as originally added")
+  void shouldSendHeaderRowEditedInPlace() {
+    // given - the row's value is mutated after being added, as a table cell edit commit would do
+    fakeEngine.willReturn(new HttpResponse(200, "{}", Map.of(), 10));
+    vm.url.set("http://test.com");
+    final var row = new KeyValueRow(true, "X-Custom", "old");
+    vm.headers.add(row);
+    row.valueProperty().set("new");
+
+    // when
+    vm.sendRequest();
+
+    // then
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              final var sentHeaders = fakeEngine.lastRequest().headers();
+              assertThat(sentHeaders).containsEntry("X-Custom", "new");
+            });
+  }
+
+  @Test
   @DisplayName("Should not send disabled or blank-key header rows")
   void shouldNotSendDisabledOrBlankKeyHeaders() {
     // given
@@ -173,6 +196,21 @@ class RequestTabViewModelTest {
 
     // then
     assertThat(vm.url.get()).isEqualTo("http://test.com/resource?foo=bar");
+  }
+
+  @Test
+  @DisplayName("Should rebuild the url when an existing query param row is edited in place")
+  void shouldSyncUrlWhenExistingQueryParamRowIsEditedInPlace() {
+    // given - a row already in the list, as it would be after a table cell edit commits by
+    // mutating the row's own property rather than replacing or adding a row
+    vm.url.set("http://test.com/resource");
+    vm.queryParams.add(new KeyValueRow(true, "foo", "old"));
+
+    // when
+    vm.queryParams.getFirst().valueProperty().set("new");
+
+    // then
+    assertThat(vm.url.get()).isEqualTo("http://test.com/resource?foo=new");
   }
 
   @Test

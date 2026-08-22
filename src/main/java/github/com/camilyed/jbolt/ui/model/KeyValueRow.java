@@ -6,12 +6,12 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 
 /**
- * One editable row of a key/value table - shared shape for both the request headers editor and
- * the query-params editor, since a header row and a query-param row are the same thing: an
- * enabled flag, a key, and a value. Mutable by design (unlike the rest of this codebase's
- * preference for immutable records) because {@link javafx.scene.control.TableView} edits a row in
- * place through its properties; a record would need to be replaced wholesale on every keystroke,
- * which would also break the row's identity for whichever table cell is mid-edit.
+ * One editable row of a key/value table - shared shape for both the request headers editor and the
+ * query-params editor, since a header row and a query-param row are the same thing: an enabled
+ * flag, a key, and a value. Mutable by design (unlike the rest of this codebase's preference for
+ * immutable records) because {@link javafx.scene.control.TableView} edits a row in place through
+ * its properties; a record would need to be replaced wholesale on every keystroke, which would also
+ * break the row's identity for whichever table cell is mid-edit.
  */
 public final class KeyValueRow {
 

@@ -135,12 +135,16 @@ public final class RequestTabViewModel {
     return rows;
   }
 
-  private static String rebuildUrlWithParams(final String currentUrl, final List<KeyValueRow> rows) {
+  private static String rebuildUrlWithParams(
+      final String currentUrl, final List<KeyValueRow> rows) {
     final var base = currentUrl == null ? "" : currentUrl;
     final var queryStart = base.indexOf('?');
     final var baseWithoutQuery = queryStart < 0 ? base : base.substring(0, queryStart);
     final var enabledRows =
-        rows.stream().filter(KeyValueRow::isEnabled).filter(row -> !row.getKey().isBlank()).toList();
+        rows.stream()
+            .filter(KeyValueRow::isEnabled)
+            .filter(row -> !row.getKey().isBlank())
+            .toList();
     if (enabledRows.isEmpty()) {
       return baseWithoutQuery;
     }

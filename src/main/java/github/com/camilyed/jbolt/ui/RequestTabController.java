@@ -35,7 +35,7 @@ import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeView;
 import javafx.scene.control.cell.CheckBoxTableCell;
-import javafx.scene.control.cell.TextFieldTableCell;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -230,15 +230,20 @@ public final class RequestTabController implements Component<VBox> {
 
     final var keyCol = new TableColumn<KeyValueRow, String>("Key");
     keyCol.setCellValueFactory(data -> data.getValue().keyProperty());
-    keyCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    keyCol.setCellFactory(_ -> new EditingTextFieldCell());
     keyCol.setEditable(true);
     keyCol.setPrefWidth(180);
+    // Don't rely on the default edit-commit handler writing back through the cellValueFactory's
+    // property alone - write explicitly so the row's keyProperty (and therefore the extractor-backed
+    // rows list's "updated" change event) reliably fires on every commit.
+    keyCol.setOnEditCommit(event -> event.getRowValue().keyProperty().set(event.getNewValue()));
 
     final var valueCol = new TableColumn<KeyValueRow, String>("Value");
     valueCol.setCellValueFactory(data -> data.getValue().valueProperty());
-    valueCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    valueCol.setCellFactory(_ -> new EditingTextFieldCell());
     valueCol.setEditable(true);
     valueCol.setPrefWidth(320);
+    valueCol.setOnEditCommit(event -> event.getRowValue().valueProperty().set(event.getNewValue()));
 
     final var deleteCol = new TableColumn<KeyValueRow, Void>("");
     deleteCol.setCellFactory(_ -> deleteRowCell(rows));
@@ -267,6 +272,79 @@ public final class RequestTabController implements Component<VBox> {
         setGraphic(empty ? null : deleteBtn);
       }
     };
+  }
+
+  /**
+   * A text-editing table cell like {@link javafx.scene.control.cell.TextFieldTableCell}, plus one
+   * fix: it also commits the edit when the embedded {@link TextField} loses focus. JavaFX's built-in
+   * {@code
+   * TextFieldTableCell} only commits on Enter and cancels on Escape - clicking away from the cell
+   * (e.g. to the URL field or the Send button, which is how people actually use this editor)
+   * leaves the edit uncommitted and silently discarded, so the typed value never reaches the row's
+   * property and nothing downstream (the params-to-url sync, the headers sent with a request) ever
+   * sees it.
+   */
+  private static final class EditingTextFieldCell extends TableCell<KeyValueRow, String> {
+    private TextField textField;
+
+    @Override
+    public void startEdit() {
+      if (!isEditable() || !getTableView().isEditable() || !getTableColumn().isEditable()) {
+        return;
+      }
+      super.startEdit();
+      if (textField == null) {
+        createTextField();
+      }
+      textField.setText(getItem());
+      setText(null);
+      setGraphic(textField);
+      textField.requestFocus();
+      textField.selectAll();
+    }
+
+    @Override
+    public void cancelEdit() {
+      super.cancelEdit();
+      setText(getItem());
+      setGraphic(null);
+    }
+
+    @Override
+    protected void updateItem(final String item, final boolean empty) {
+      super.updateItem(item, empty);
+      if (empty) {
+        setText(null);
+        setGraphic(null);
+      } else if (isEditing()) {
+        if (textField != null) {
+          textField.setText(item);
+        }
+        setText(null);
+        setGraphic(textField);
+      } else {
+        setText(item);
+        setGraphic(null);
+      }
+    }
+
+    private void createTextField() {
+      textField = new TextField(getItem());
+      textField.setOnAction(_ -> commitEdit(textField.getText()));
+      textField.setOnKeyReleased(
+          event -> {
+            if (event.getCode() == KeyCode.ESCAPE) {
+              cancelEdit();
+            }
+          });
+      textField.focusedProperty()
+          .addListener(
+              (_, _, stillFocused) -> {
+                if (!stillFocused && isEditing()) {
+                  commitEdit(textField.getText());
+                }
+              });
+    }
   }
 
   private Region buildResponseCard() {
