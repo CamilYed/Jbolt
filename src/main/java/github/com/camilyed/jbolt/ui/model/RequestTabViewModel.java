@@ -7,11 +7,18 @@ import github.com.camilyed.jbolt.common.result.Result;
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
 import github.com.camilyed.jbolt.domain.execution.HttpResponse;
 import java.io.ByteArrayInputStream;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import javafx.application.Platform;
+import javafx.beans.Observable;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -19,6 +26,7 @@ import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -34,6 +42,14 @@ public final class RequestTabViewModel {
   public final StringProperty url = new SimpleStringProperty("");
   public final ObjectProperty<HttpMethod> method = new SimpleObjectProperty<>(HttpMethod.GET);
   public final StringProperty requestBody = new SimpleStringProperty("");
+  // User-defined request headers - only rows with isEnabled() true and a non-blank key are sent.
+  public final ObservableList<KeyValueRow> headers =
+      FXCollections.observableArrayList(RequestTabViewModel::rowObservables);
+  // Query-string parameters, kept in sync with url in both directions: editing the URL rebuilds
+  // this list, and editing a row (or adding/removing one) rebuilds the URL's query string. See
+  // wireUrlQueryParamSync() for how the two directions avoid feeding back into each other.
+  public final ObservableList<KeyValueRow> queryParams =
+      FXCollections.observableArrayList(RequestTabViewModel::rowObservables);
 
   // --- OUTPUT PROPERTIES ---
   public final StringProperty responseBody = new SimpleStringProperty("");
@@ -54,8 +70,97 @@ public final class RequestTabViewModel {
   public final ObservableList<HttpMethod> methods =
       FXCollections.observableArrayList(HttpMethod.values());
 
+  // Reentrancy guards for the url <-> queryParams sync: each direction sets its own flag before
+  // writing the other side, and checks the other flag before reacting - without this, url.set(...)
+  // inside the params listener would trigger the url listener, which would rewrite queryParams,
+  // which would fire the params listener again, forever.
+  private boolean syncingFromUrl;
+  private boolean syncingFromParams;
+
   public RequestTabViewModel(final RequestExecutionService service) {
     this.service = service;
+    wireUrlQueryParamSync();
+  }
+
+  private static Observable[] rowObservables(final KeyValueRow row) {
+    return new Observable[] {row.enabledProperty(), row.keyProperty(), row.valueProperty()};
+  }
+
+  private void wireUrlQueryParamSync() {
+    url.addListener(
+        (_, _, newUrl) -> {
+          if (syncingFromParams) {
+            return;
+          }
+          syncingFromUrl = true;
+          try {
+            queryParams.setAll(parseQueryParams(newUrl));
+          } finally {
+            syncingFromUrl = false;
+          }
+        });
+    queryParams.addListener(
+        (ListChangeListener<KeyValueRow>)
+            change -> {
+              if (syncingFromUrl) {
+                return;
+              }
+              syncingFromParams = true;
+              try {
+                url.set(rebuildUrlWithParams(url.get(), queryParams));
+              } finally {
+                syncingFromParams = false;
+              }
+            });
+  }
+
+  private static List<KeyValueRow> parseQueryParams(final String urlValue) {
+    if (urlValue == null) {
+      return List.of();
+    }
+    final var queryStart = urlValue.indexOf('?');
+    if (queryStart < 0 || queryStart == urlValue.length() - 1) {
+      return List.of();
+    }
+    final var rows = new ArrayList<KeyValueRow>();
+    for (final var pair : urlValue.substring(queryStart + 1).split("&", -1)) {
+      if (pair.isEmpty()) {
+        continue;
+      }
+      final var eq = pair.indexOf('=');
+      final var key = eq < 0 ? pair : pair.substring(0, eq);
+      final var value = eq < 0 ? "" : pair.substring(eq + 1);
+      rows.add(new KeyValueRow(true, urlDecode(key), urlDecode(value)));
+    }
+    return rows;
+  }
+
+  private static String rebuildUrlWithParams(final String currentUrl, final List<KeyValueRow> rows) {
+    final var base = currentUrl == null ? "" : currentUrl;
+    final var queryStart = base.indexOf('?');
+    final var baseWithoutQuery = queryStart < 0 ? base : base.substring(0, queryStart);
+    final var enabledRows =
+        rows.stream().filter(KeyValueRow::isEnabled).filter(row -> !row.getKey().isBlank()).toList();
+    if (enabledRows.isEmpty()) {
+      return baseWithoutQuery;
+    }
+    final var query =
+        enabledRows.stream()
+            .map(row -> urlEncode(row.getKey()) + "=" + urlEncode(row.getValue()))
+            .collect(Collectors.joining("&"));
+    return baseWithoutQuery + "?" + query;
+  }
+
+  private static String urlEncode(final String raw) {
+    return URLEncoder.encode(raw, StandardCharsets.UTF_8).replace("+", "%20");
+  }
+
+  private static String urlDecode(final String raw) {
+    try {
+      return URLDecoder.decode(raw, StandardCharsets.UTF_8);
+    } catch (final IllegalArgumentException _) {
+      return raw;
+    }
   }
 
   public void sendRequest() {
@@ -64,15 +169,33 @@ public final class RequestTabViewModel {
     }
 
     loading.set(true);
+    // Snapshotted on the FX thread before dispatching, same as url/method/requestBody being read
+    // by value below - an ObservableList isn't safe to iterate concurrently with FX-thread edits.
+    final var requestHeaders = buildRequestHeaders();
 
-    CompletableFuture.supplyAsync(this::executeRequest)
+    CompletableFuture.supplyAsync(() -> executeRequest(requestHeaders))
         .thenAccept(result -> Platform.runLater(() -> handleResult(result)))
         .whenComplete((_, _) -> Platform.runLater(() -> loading.set(false)));
   }
 
-  private Result<HttpResponse> executeRequest() {
-    return service.execute(
-        url.get(), method.get(), Map.of("Accept", "application/json"), requestBody.get());
+  /**
+   * Merges the user's enabled, non-blank-key header rows over the client's one default header, in
+   * table order - so a user-added "Accept" row wins over the default rather than being shadowed by
+   * it.
+   */
+  private Map<String, String> buildRequestHeaders() {
+    final var result = new LinkedHashMap<String, String>();
+    result.put("Accept", "application/json");
+    for (final var row : headers) {
+      if (row.isEnabled() && !row.getKey().isBlank()) {
+        result.put(row.getKey(), row.getValue());
+      }
+    }
+    return result;
+  }
+
+  private Result<HttpResponse> executeRequest(final Map<String, String> requestHeaders) {
+    return service.execute(url.get(), method.get(), requestHeaders, requestBody.get());
   }
 
   private void handleResult(final Result<HttpResponse> result) {

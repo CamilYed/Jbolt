@@ -104,6 +104,93 @@ class RequestTabViewModelTest {
   }
 
   @Test
+  @DisplayName("Should send enabled header rows along with the request")
+  void shouldSendEnabledHeadersWithRequest() {
+    // given
+    fakeEngine.willReturn(new HttpResponse(200, "{}", Map.of(), 10));
+    vm.url.set("http://test.com");
+    vm.headers.add(new KeyValueRow(true, "X-Custom", "abc"));
+
+    // when
+    vm.sendRequest();
+
+    // then
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              final var sentHeaders = fakeEngine.lastRequest().headers();
+              assertThat(sentHeaders).containsEntry("X-Custom", "abc");
+              assertThat(sentHeaders).containsEntry("Accept", "application/json");
+            });
+  }
+
+  @Test
+  @DisplayName("Should not send disabled or blank-key header rows")
+  void shouldNotSendDisabledOrBlankKeyHeaders() {
+    // given
+    fakeEngine.willReturn(new HttpResponse(200, "{}", Map.of(), 10));
+    vm.url.set("http://test.com");
+    vm.headers.add(new KeyValueRow(false, "X-Disabled", "ignored"));
+    vm.headers.add(new KeyValueRow(true, "", "ignored-too"));
+
+    // when
+    vm.sendRequest();
+
+    // then
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              final var sentHeaders = fakeEngine.lastRequest().headers();
+              assertThat(sentHeaders).doesNotContainKey("X-Disabled");
+              assertThat(sentHeaders).doesNotContainValue("ignored-too");
+            });
+  }
+
+  @Test
+  @DisplayName("Should populate query params from the url's query string")
+  void shouldSyncQueryParamsFromUrl() {
+    // when
+    vm.url.set("http://test.com/resource?a=1&b=two");
+
+    // then
+    assertThat(vm.queryParams).hasSize(2);
+    assertThat(vm.queryParams.get(0).getKey()).isEqualTo("a");
+    assertThat(vm.queryParams.get(0).getValue()).isEqualTo("1");
+    assertThat(vm.queryParams.get(1).getKey()).isEqualTo("b");
+    assertThat(vm.queryParams.get(1).getValue()).isEqualTo("two");
+  }
+
+  @Test
+  @DisplayName("Should rebuild the url's query string when a param row is added")
+  void shouldSyncUrlFromQueryParamEdits() {
+    // given
+    vm.url.set("http://test.com/resource");
+
+    // when
+    vm.queryParams.add(new KeyValueRow(true, "foo", "bar"));
+
+    // then
+    assertThat(vm.url.get()).isEqualTo("http://test.com/resource?foo=bar");
+  }
+
+  @Test
+  @DisplayName("Should omit disabled and blank-key param rows when rebuilding the url")
+  void shouldOmitDisabledAndBlankKeyParamsFromUrl() {
+    // given
+    vm.url.set("http://test.com/resource");
+
+    // when
+    vm.queryParams.add(new KeyValueRow(true, "keep", "1"));
+    vm.queryParams.add(new KeyValueRow(false, "skip", "2"));
+    vm.queryParams.add(new KeyValueRow(true, "", "3"));
+
+    // then
+    assertThat(vm.url.get()).isEqualTo("http://test.com/resource?keep=1");
+  }
+
+  @Test
   @DisplayName("Should expose the parsed XML document for an xml response")
   void shouldExposeParsedXmlForXmlResponse() {
     // given

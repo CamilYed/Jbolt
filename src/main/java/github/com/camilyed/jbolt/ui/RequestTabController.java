@@ -5,11 +5,13 @@ import atlantafx.base.theme.Styles;
 import atlantafx.base.theme.Tweaks;
 import com.fasterxml.jackson.databind.JsonNode;
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
+import github.com.camilyed.jbolt.ui.model.KeyValueRow;
 import github.com.camilyed.jbolt.ui.model.RequestTabViewModel;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
@@ -23,12 +25,17 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeView;
+import javafx.scene.control.cell.CheckBoxTableCell;
+import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -173,17 +180,93 @@ public final class RequestTabController implements Component<VBox> {
     final var bodyTab = new Tab("Body", requestBodyArea);
     bodyTab.setClosable(false);
 
-    final var headersPlaceholder = new Label("Headers editor coming soon");
-    headersPlaceholder.getStyleClass().addAll(Styles.TEXT_MUTED, Styles.TEXT_SMALL);
-    final var headersPane = new VBox(8, headersPlaceholder);
-    headersPane.setPadding(new Insets(16));
-    final var headersTab = new Tab("Headers", headersPane);
+    final var paramsTab = new Tab("Params", buildKeyValueEditor(vm.queryParams, "queryParams"));
+    paramsTab.setClosable(false);
+
+    final var headersTab = new Tab("Headers", buildKeyValueEditor(vm.headers, "headers"));
     headersTab.setClosable(false);
 
-    final var tabs = new TabPane(bodyTab, headersTab);
+    final var tabs = new TabPane(bodyTab, paramsTab, headersTab);
     tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
     tabs.getStyleClass().addAll(Styles.TABS_CLASSIC, Tweaks.EDGE_TO_EDGE);
     return tabs;
+  }
+
+  /**
+   * A key/value table plus an "+ Add" button beneath it - shared by the Headers and Params tabs,
+   * since both edit the exact same {@link KeyValueRow} shape. Params additionally stays in sync
+   * with the URL field via {@link RequestTabViewModel#queryParams}; that sync lives entirely in
+   * the view model, so this method doesn't need to know or care which list it was handed.
+   */
+  private VBox buildKeyValueEditor(final ObservableList<KeyValueRow> rows, final String idPrefix) {
+    final var table = buildKeyValueTable(rows, idPrefix);
+    VBox.setVgrow(table, Priority.ALWAYS);
+
+    final var addBtn = new Button("+ Add");
+    addBtn.setId(idPrefix + "AddBtn");
+    addBtn.getStyleClass().addAll(Styles.BUTTON_OUTLINED, Styles.SMALL);
+    addBtn.setOnAction(_ -> rows.add(new KeyValueRow(true, "", "")));
+
+    final var box = new VBox(8, table, addBtn);
+    box.setId(idPrefix + "Editor");
+    box.setPadding(new Insets(12));
+    VBox.setVgrow(box, Priority.ALWAYS);
+    return box;
+  }
+
+  private TableView<KeyValueRow> buildKeyValueTable(
+      final ObservableList<KeyValueRow> rows, final String idPrefix) {
+    final var table = new TableView<>(rows);
+    table.setId(idPrefix + "Table");
+    table.setEditable(true);
+    table.getStyleClass().add(Styles.TEXT_SMALL);
+
+    final var enabledCol = new TableColumn<KeyValueRow, Boolean>("");
+    enabledCol.setCellValueFactory(data -> data.getValue().enabledProperty());
+    enabledCol.setCellFactory(CheckBoxTableCell.forTableColumn(enabledCol));
+    enabledCol.setEditable(true);
+    enabledCol.setResizable(false);
+    enabledCol.setPrefWidth(32);
+
+    final var keyCol = new TableColumn<KeyValueRow, String>("Key");
+    keyCol.setCellValueFactory(data -> data.getValue().keyProperty());
+    keyCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    keyCol.setEditable(true);
+    keyCol.setPrefWidth(180);
+
+    final var valueCol = new TableColumn<KeyValueRow, String>("Value");
+    valueCol.setCellValueFactory(data -> data.getValue().valueProperty());
+    valueCol.setCellFactory(TextFieldTableCell.forTableColumn());
+    valueCol.setEditable(true);
+    valueCol.setPrefWidth(320);
+
+    final var deleteCol = new TableColumn<KeyValueRow, Void>("");
+    deleteCol.setCellFactory(_ -> deleteRowCell(rows));
+    deleteCol.setResizable(false);
+    deleteCol.setPrefWidth(36);
+
+    table.getColumns().addAll(enabledCol, keyCol, valueCol, deleteCol);
+    table.setMaxHeight(Double.MAX_VALUE);
+    table.setMaxWidth(Double.MAX_VALUE);
+    return table;
+  }
+
+  /** A "✕" button cell that removes its own row from {@code rows} when clicked. */
+  private TableCell<KeyValueRow, Void> deleteRowCell(final ObservableList<KeyValueRow> rows) {
+    return new TableCell<>() {
+      private final Button deleteBtn = new Button("✕");
+
+      {
+        deleteBtn.getStyleClass().addAll(Styles.BUTTON_OUTLINED, Styles.SMALL);
+        deleteBtn.setOnAction(_ -> rows.remove(getTableRow().getItem()));
+      }
+
+      @Override
+      protected void updateItem(final Void item, final boolean empty) {
+        super.updateItem(item, empty);
+        setGraphic(empty ? null : deleteBtn);
+      }
+    };
   }
 
   private Region buildResponseCard() {

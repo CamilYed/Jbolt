@@ -6,12 +6,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import github.com.camilyed.jbolt.application.execution.RequestExecutionService;
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
 import github.com.camilyed.jbolt.testing.dsl.fakes.FakeHttpEngine;
+import github.com.camilyed.jbolt.ui.model.KeyValueRow;
 import github.com.camilyed.jbolt.ui.model.RequestTabViewModel;
 import java.io.StringReader;
 import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
@@ -341,5 +343,69 @@ class RequestTabControllerTest {
 
     // then
     assertThat(rawJsonFlow.getChildren().size()).isLessThan(childCountBeforeFold);
+  }
+
+  @Test
+  @DisplayName("should add a header row to the view model when + Add is clicked")
+  void shouldAddHeaderRowWhenAddButtonClicked() {
+    // given
+    final var root = realized(controller);
+    final var addBtn = (Button) root.lookup("#headersAddBtn");
+    final var sizeBefore = vm.headers.size();
+
+    // when
+    addBtn.fire();
+
+    // then
+    assertThat(vm.headers).hasSize(sizeBefore + 1);
+    assertThat(vm.headers.getLast().isEnabled()).isTrue();
+    assertThat(vm.headers.getLast().getKey()).isEmpty();
+  }
+
+  @Test
+  @DisplayName("should add a query param row to the view model when + Add is clicked")
+  void shouldAddQueryParamRowWhenAddButtonClicked() {
+    // given
+    final var root = realized(controller);
+    final var addBtn = (Button) root.lookup("#queryParamsAddBtn");
+    final var sizeBefore = vm.queryParams.size();
+
+    // when
+    addBtn.fire();
+
+    // then
+    assertThat(vm.queryParams).hasSize(sizeBefore + 1);
+  }
+
+  @Test
+  @DisplayName("should reflect view model headers in the headers table")
+  void shouldBindHeadersTableToViewModel() {
+    // given
+    final var root = realized(controller);
+    @SuppressWarnings("unchecked")
+    final var headersTable = (TableView<KeyValueRow>) root.lookup("#headersTable");
+
+    // when
+    vm.headers.add(new KeyValueRow(true, "X-Trace-Id", "abc-123"));
+
+    // then
+    assertThat(headersTable.getItems()).hasSize(1);
+    assertThat(headersTable.getItems().getFirst().getKey()).isEqualTo("X-Trace-Id");
+  }
+
+  @Test
+  @DisplayName("should reflect view model query params in the params table")
+  void shouldBindQueryParamsTableToViewModel() {
+    // given
+    final var root = realized(controller);
+    @SuppressWarnings("unchecked")
+    final var paramsTable = (TableView<KeyValueRow>) root.lookup("#queryParamsTable");
+
+    // when
+    vm.url.set("http://test.com/resource?filter=active");
+
+    // then
+    assertThat(paramsTable.getItems()).hasSize(1);
+    assertThat(paramsTable.getItems().getFirst().getKey()).isEqualTo("filter");
   }
 }
