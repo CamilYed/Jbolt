@@ -104,6 +104,75 @@ class RequestTabViewModelTest {
   }
 
   @Test
+  @DisplayName("Should expose the parsed XML document for an xml response")
+  void shouldExposeParsedXmlForXmlResponse() {
+    // given
+    final var response =
+        new HttpResponse(200, "<person><name>Alice</name></person>", Map.of(), 100);
+    fakeEngine.willReturn(response);
+    vm.url.set("http://test.com");
+
+    // when
+    vm.sendRequest();
+
+    // then
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              assertThat(vm.responseXml.get()).isNotNull();
+              assertThat(vm.responseXml.get().getDocumentElement().getTagName())
+                  .isEqualTo("person");
+              assertThat(vm.responseJson.get()).isNull();
+            });
+  }
+
+  @Test
+  @DisplayName("Should detect xml via the Content-Type header even when the body looks ambiguous")
+  void shouldDetectXmlViaContentTypeHeader() {
+    // given
+    final var headers = Map.of("Content-Type", "text/xml; charset=utf-8");
+    final var response = new HttpResponse(200, "<a>1</a>", headers, 100);
+    fakeEngine.willReturn(response);
+    vm.url.set("http://test.com");
+
+    // when
+    vm.sendRequest();
+
+    // then
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              assertThat(vm.responseXml.get()).isNotNull();
+              assertThat(vm.responseJson.get()).isNull();
+            });
+  }
+
+  @Test
+  @DisplayName("Should handle malformed XML and fall back to raw text")
+  void shouldHandleMalformedXml() {
+    // given
+    final var invalidXml = "<person><name>Alice</name>"; // Missing closing </person>
+    final var response = new HttpResponse(200, invalidXml, Map.of(), 50);
+    fakeEngine.willReturn(response);
+    vm.url.set("http://invalid.com");
+
+    // when
+    vm.sendRequest();
+
+    // then
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              assertThat(vm.responseBody.get()).isEqualTo(invalidXml);
+              assertThat(vm.responseXml.get()).isNull();
+              assertThat(vm.responseJson.get()).isNull();
+            });
+  }
+
+  @Test
   @DisplayName("Should handle empty response body gracefully")
   void shouldHandleEmptyBody() {
     // given
@@ -122,6 +191,7 @@ class RequestTabViewModelTest {
               assertThat(vm.responseBody.get()).isEqualTo("[Empty Response]");
               assertThat(vm.statusText.get()).isEqualTo("204");
               assertThat(vm.responseJson.get()).isNull();
+              assertThat(vm.responseXml.get()).isNull();
             });
   }
 

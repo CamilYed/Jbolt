@@ -38,6 +38,10 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
+import org.w3c.dom.Attr;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 
 /**
  * Builds a single request tab: the method/URL/send bar, a request-body/headers editor, and a
@@ -83,17 +87,32 @@ public final class RequestTabController implements Component<VBox> {
   private Label timeLabel;
   private Button sendBtn;
 
-  // Whether the last response parsed as a JSON object/array - the only case where a tree or a
-  // highlighted raw view makes sense. Read by updateVisibleView() so the toggle listener can
-  // recompute visibility without needing the JsonNode itself.
-  private boolean hasContainerJson;
-  private boolean rawModeSelected;
+  /** Which of the three response views currently applies, decided by what the body parsed as. */
+  private enum BodyKind {
+    JSON,
+    XML,
+    NONE
+  }
+
+  // What kind of body the last response was - drives both which view is visible and whether the
+  // Tree/Raw toggle even makes sense (XML has no tree yet, so it's raw-only). Read by
+  // updateVisibleView() so the toggle listener can recompute visibility without re-deriving it.
+  private BodyKind bodyKind = BodyKind.NONE;
+  // Raw is the default for both JSON and XML - it shows the response exactly as the server sent
+  // it, which reads better on first glance than a tree the user has to already trust before
+  // expanding. Initialized to match rawToggleBtn's default selection in buildViewToggle().
+  private boolean rawModeSelected = true;
 
   // Which containers are collapsed in the raw view, keyed by node identity, and the JsonNode the
   // raw view was last built from - both reset whenever a new response arrives, since a stale
   // JsonNode as a map key would otherwise leak every past response's tree for the tab's lifetime.
   private final Map<JsonNode, Boolean> rawFoldedNodes = new IdentityHashMap<>();
   private JsonNode currentJson;
+  // Same idea as rawFoldedNodes/currentJson, but for XML elements - org.w3c.dom nodes don't
+  // override equals()/hashCode(), so identity semantics fall out of a plain IdentityHashMap the
+  // same way they do for JsonNode.
+  private final Map<Element, Boolean> xmlFoldedNodes = new IdentityHashMap<>();
+  private Document currentXmlDoc;
   private int foldIdSeq;
 
   private final RequestTabViewModel vm;
@@ -208,9 +227,12 @@ public final class RequestTabController implements Component<VBox> {
   }
 
   /**
-   * A small "Tree | Raw" segmented control that picks how a JSON response is displayed. Hidden
-   * whenever the response isn't a JSON object/array, since neither view applies to plain text or
-   * scalar bodies.
+   * A small "Tree | Raw" segmented control that picks how a JSON response is displayed. Only
+   * meaningful for JSON - XML bodies have no tree yet, so {@link #updateResponseViews()} hides
+   * this entirely for XML and shows only the raw view; it's hidden for plain text/scalar bodies
+   * too, since neither view applies there. Raw starts selected: it shows the response exactly as
+   * the server sent it, which is the more legible default before the user has any reason to trust
+   * a tree built from it.
    */
   private HBox buildViewToggle() {
     treeToggleBtn = new ToggleButton("Tree");
@@ -224,7 +246,7 @@ public final class RequestTabController implements Component<VBox> {
     final var group = new ToggleGroup();
     treeToggleBtn.setToggleGroup(group);
     rawToggleBtn.setToggleGroup(group);
-    treeToggleBtn.setSelected(true);
+    rawToggleBtn.setSelected(true);
 
     group
         .selectedToggleProperty()
@@ -250,8 +272,9 @@ public final class RequestTabController implements Component<VBox> {
 
   /**
    * The card body is one of three views sharing a {@link StackPane}: the plain text area (initial
-   * empty state, and non-JSON or scalar bodies), the collapsible tree, or the highlighted raw JSON
-   * text - {@link #updateVisibleView()} toggles which one is visible.
+   * empty state, and bodies that are neither valid JSON nor valid XML), the collapsible JSON tree,
+   * or the highlighted raw text (JSON or XML) - {@link #updateVisibleView()} toggles which one is
+   * visible.
    */
   private StackPane buildResponseBody() {
     responseArea = new TextArea();
@@ -346,32 +369,59 @@ public final class RequestTabController implements Component<VBox> {
     return JSON_SCALAR_COLOR;
   }
 
-  /** Rebuilds the tree and the raw view for a new response, then shows whichever is selected. */
-  private void updateResponseViews(final JsonNode json) {
-    hasContainerJson = json != null && (json.isObject() || json.isArray());
-    currentJson = json;
+  /**
+   * Rebuilds the tree and the raw view for a new response, then shows whichever is selected. Reads
+   * both {@link RequestTabViewModel#responseJson} and {@link RequestTabViewModel#responseXml}
+   * directly rather than taking a parameter, since either one (or neither) may have just changed
+   * and this needs to decide {@link #bodyKind} from their combined state.
+   */
+  private void updateResponseViews() {
+    final var json = vm.responseJson.get();
+    final var xml = vm.responseXml.get();
+    bodyKind = resolveBodyKind(json, xml);
+    currentJson = bodyKind == BodyKind.JSON ? json : null;
+    currentXmlDoc = bodyKind == BodyKind.XML ? xml : null;
     rawFoldedNodes.clear();
-    responseTree.setRoot(hasContainerJson ? JsonTreeBuilder.build("root", json) : null);
+    xmlFoldedNodes.clear();
+    responseTree.setRoot(bodyKind == BodyKind.JSON ? JsonTreeBuilder.build("root", json) : null);
     refreshRawView();
-    viewToggleBox.setVisible(hasContainerJson);
-    viewToggleBox.setManaged(hasContainerJson);
+    // The Tree/Raw toggle only makes sense for JSON - XML has no tree view yet.
+    viewToggleBox.setVisible(bodyKind == BodyKind.JSON);
+    viewToggleBox.setManaged(bodyKind == BodyKind.JSON);
     updateVisibleView();
   }
 
-  /** Re-renders the raw view from {@link #currentJson} and the current fold state. */
+  /** JSON wins when the body is a valid object/array; otherwise a parsed XML doc wins; else none. */
+  private static BodyKind resolveBodyKind(final JsonNode json, final Document xml) {
+    if (json != null && (json.isObject() || json.isArray())) {
+      return BodyKind.JSON;
+    }
+    if (xml != null) {
+      return BodyKind.XML;
+    }
+    return BodyKind.NONE;
+  }
+
+  /** Re-renders the raw view from {@link #currentJson}/{@link #currentXmlDoc} and fold state. */
   private void refreshRawView() {
-    rawJsonFlow.getChildren().setAll(hasContainerJson ? buildRawJsonNodes(currentJson) : List.of());
+    final List<Text> nodes =
+        switch (bodyKind) {
+          case JSON -> buildRawJsonNodes(currentJson);
+          case XML -> buildRawXmlNodes(currentXmlDoc);
+          case NONE -> List.of();
+        };
+    rawJsonFlow.getChildren().setAll(nodes);
   }
 
   private void updateVisibleView() {
-    final var showTree = hasContainerJson && !rawModeSelected;
-    final var showRaw = hasContainerJson && rawModeSelected;
+    final var showTree = bodyKind == BodyKind.JSON && !rawModeSelected;
+    final var showRaw = bodyKind == BodyKind.XML || (bodyKind == BodyKind.JSON && rawModeSelected);
     responseTree.setVisible(showTree);
     responseTree.setManaged(showTree);
     rawJsonScroll.setVisible(showRaw);
     rawJsonScroll.setManaged(showRaw);
-    responseArea.setVisible(!hasContainerJson);
-    responseArea.setManaged(!hasContainerJson);
+    responseArea.setVisible(bodyKind == BodyKind.NONE);
+    responseArea.setManaged(bodyKind == BodyKind.NONE);
   }
 
   /**
@@ -446,18 +496,33 @@ public final class RequestTabController implements Component<VBox> {
   }
 
   /**
-   * A clickable "{" or "[" that toggles its own container's fold state and re-renders the raw view.
-   * Rendered noticeably larger and bolder than the surrounding punctuation - at normal text size a
-   * lone bracket reads as inert, too small to comfortably aim at and easy to mistake for plain
-   * structure rather than a control - and it swaps to the accent color with an underline on hover
-   * so the pointer confirms it's interactive before the click even lands. IDs are assigned in
-   * traversal order ("fold-0", "fold-1", …) purely so tests can target a specific container without
-   * depending on JSON key names, which may contain characters a CSS id selector can't express.
+   * A clickable "{" or "[" that toggles its own container's fold state and re-renders the raw
+   * view. IDs are assigned in traversal order ("fold-0", "fold-1", …) purely so tests can target a
+   * specific container without depending on JSON key names, which may contain characters a CSS id
+   * selector can't express.
    */
   private Text foldToggle(final JsonNode node, final String openChar) {
-    final var text = new Text(openChar);
+    return makeFoldToggle(
+        openChar,
+        JSON_CONTAINER_COLOR,
+        () -> {
+          rawFoldedNodes.put(node, !isFolded(node));
+          refreshRawView();
+        });
+  }
+
+  /**
+   * Builds a clickable fold-toggle {@link Text} shared by the JSON brace/bracket toggle and the
+   * XML tag-name toggle. Rendered noticeably larger and bolder than the surrounding punctuation -
+   * at normal text size a lone brace or a short tag name reads as inert, too small to comfortably
+   * aim at and easy to mistake for plain structure rather than a control - and it swaps to the
+   * accent color with an underline on hover so the pointer confirms it's interactive before the
+   * click even lands.
+   */
+  private Text makeFoldToggle(final String label, final Color baseColor, final Runnable onToggle) {
+    final var text = new Text(label);
     text.setId("fold-" + foldIdSeq++);
-    text.setFill(JSON_CONTAINER_COLOR);
+    text.setFill(baseColor);
     text.setStyle(FOLD_TOGGLE_STYLE);
     text.setCursor(Cursor.HAND);
     text.setOnMouseEntered(
@@ -467,14 +532,10 @@ public final class RequestTabController implements Component<VBox> {
         });
     text.setOnMouseExited(
         _ -> {
-          text.setFill(JSON_CONTAINER_COLOR);
+          text.setFill(baseColor);
           text.setUnderline(false);
         });
-    text.setOnMouseClicked(
-        _ -> {
-          rawFoldedNodes.put(node, !isFolded(node));
-          refreshRawView();
-        });
+    text.setOnMouseClicked(_ -> onToggle.run());
     return text;
   }
 
@@ -498,6 +559,120 @@ public final class RequestTabController implements Component<VBox> {
     out.add(node);
   }
 
+  /**
+   * Renders an XML document as pretty-printed, colored {@link Text} runs, mirroring {@link
+   * #buildRawJsonNodes(JsonNode)}: tag names are colored like JSON keys, attribute values and leaf
+   * text like JSON strings, and punctuation is muted. An element with child elements is a
+   * "container" - its tag name becomes a clickable {@link #xmlFoldToggle(Element, String)} that
+   * collapses it to a "&lt;tag&gt;…&lt;/tag&gt;" placeholder, same as JSON's braces. An element
+   * with no child elements is a leaf: its own text content (if any) is rendered inline and it has
+   * nothing to fold. Mixed content - text alongside child elements in the same element - isn't a
+   * shape real API responses tend to have, so direct text on a container element is ignored rather
+   * than chased for pixel-perfect round-tripping.
+   */
+  private List<Text> buildRawXmlNodes(final Document doc) {
+    foldIdSeq = 0;
+    final var out = new ArrayList<Text>();
+    appendXml(out, doc.getDocumentElement(), 0);
+    return out;
+  }
+
+  private void appendXml(final List<Text> out, final Element element, final int depth) {
+    final var children = xmlChildElements(element);
+    appendPunct(out, "<");
+    out.add(
+        children.isEmpty()
+            ? plainTagName(element)
+            : xmlFoldToggle(element, element.getTagName()));
+    appendXmlAttributes(out, element);
+
+    if (children.isEmpty()) {
+      final var text = xmlDirectText(element);
+      if (text.isEmpty()) {
+        appendPunct(out, "/>");
+        return;
+      }
+      appendPunct(out, ">");
+      appendColored(out, text, JSON_STRING_COLOR);
+      appendPunct(out, "</");
+      appendColored(out, element.getTagName(), JSON_KEY_COLOR);
+      appendPunct(out, ">");
+      return;
+    }
+
+    appendPunct(out, ">");
+    if (isXmlFolded(element)) {
+      appendPunct(out, "…</");
+      appendColored(out, element.getTagName(), JSON_KEY_COLOR);
+      appendPunct(out, ">");
+      return;
+    }
+    appendPlain(out, "\n");
+    for (var i = 0; i < children.size(); i++) {
+      appendPlain(out, indent(depth + 1));
+      appendXml(out, children.get(i), depth + 1);
+      appendPlain(out, "\n");
+    }
+    appendPlain(out, indent(depth));
+    appendPunct(out, "</");
+    appendColored(out, element.getTagName(), JSON_KEY_COLOR);
+    appendPunct(out, ">");
+  }
+
+  private Text plainTagName(final Element element) {
+    final var text = new Text(element.getTagName());
+    text.setFill(JSON_KEY_COLOR);
+    return text;
+  }
+
+  private void appendXmlAttributes(final List<Text> out, final Element element) {
+    final var attributes = element.getAttributes();
+    for (var i = 0; i < attributes.getLength(); i++) {
+      final var attribute = (Attr) attributes.item(i);
+      appendPlain(out, " ");
+      appendColored(out, attribute.getName(), JSON_SCALAR_COLOR);
+      appendPunct(out, "=");
+      appendColored(out, "\"" + attribute.getValue() + "\"", JSON_STRING_COLOR);
+    }
+  }
+
+  private static List<Element> xmlChildElements(final Element element) {
+    final var out = new ArrayList<Element>();
+    final var nodes = element.getChildNodes();
+    for (var i = 0; i < nodes.getLength(); i++) {
+      if (nodes.item(i) instanceof Element child) {
+        out.add(child);
+      }
+    }
+    return out;
+  }
+
+  private static String xmlDirectText(final Element element) {
+    final var text = new StringBuilder();
+    final var nodes = element.getChildNodes();
+    for (var i = 0; i < nodes.getLength(); i++) {
+      final var node = nodes.item(i);
+      if (node.getNodeType() == Node.TEXT_NODE || node.getNodeType() == Node.CDATA_SECTION_NODE) {
+        text.append(node.getNodeValue());
+      }
+    }
+    return text.toString().trim();
+  }
+
+  private boolean isXmlFolded(final Element element) {
+    return xmlFoldedNodes.getOrDefault(element, Boolean.FALSE);
+  }
+
+  private Text xmlFoldToggle(final Element element, final String tagName) {
+    return makeFoldToggle(
+        tagName,
+        JSON_KEY_COLOR,
+        () -> {
+          xmlFoldedNodes.put(element, !isXmlFolded(element));
+          refreshRawView();
+        });
+  }
+
   private void setupBindings() {
     methodCombo.setItems(vm.methods);
     methodCombo.valueProperty().bindBidirectional(vm.method);
@@ -509,8 +684,9 @@ public final class RequestTabController implements Component<VBox> {
     statusLabel.textProperty().bind(vm.statusText);
     timeLabel.textProperty().bind(vm.timeText);
 
-    vm.responseJson.addListener((_, _, json) -> updateResponseViews(json));
-    updateResponseViews(vm.responseJson.get());
+    vm.responseJson.addListener((_, _, _) -> updateResponseViews());
+    vm.responseXml.addListener((_, _, _) -> updateResponseViews());
+    updateResponseViews();
 
     vm.statusClass.addListener(
         (_, oldClass, newClass) -> {

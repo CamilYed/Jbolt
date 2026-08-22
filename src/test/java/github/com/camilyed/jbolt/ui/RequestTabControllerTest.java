@@ -7,6 +7,7 @@ import github.com.camilyed.jbolt.application.execution.RequestExecutionService;
 import github.com.camilyed.jbolt.domain.execution.HttpMethod;
 import github.com.camilyed.jbolt.testing.dsl.fakes.FakeHttpEngine;
 import github.com.camilyed.jbolt.ui.model.RequestTabViewModel;
+import java.io.StringReader;
 import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -17,10 +18,13 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.control.TreeView;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.TextFlow;
+import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
 
 class RequestTabControllerTest {
 
@@ -57,6 +61,11 @@ class RequestTabControllerTest {
     root.applyCss();
     root.layout();
     return root;
+  }
+
+  private static Document parseXml(final String xml) throws Exception {
+    final var builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+    return builder.parse(new InputSource(new StringReader(xml)));
   }
 
   @Test
@@ -143,8 +152,8 @@ class RequestTabControllerTest {
   }
 
   @Test
-  @DisplayName("should switch to the json tree and hide the text area for object responses")
-  void shouldShowJsonTreeForObjectResponse() throws Exception {
+  @DisplayName("should build the json tree and hide the text area for object responses")
+  void shouldBuildJsonTreeForObjectResponse() throws Exception {
     // given
     final var root = realized(controller);
     final var responseArea = (TextArea) root.lookup("#responseArea");
@@ -154,8 +163,9 @@ class RequestTabControllerTest {
     vm.responseJson.set(MAPPER.readTree("{\"id\":1,\"title\":\"Mascara\"}"));
 
     // then
-    assertThat(responseTree.isVisible()).isTrue();
     assertThat(responseArea.isVisible()).isFalse();
+    // The tree is built eagerly even though Raw is the default visible view, so switching to Tree
+    // via the toggle is instant rather than triggering a rebuild.
     assertThat(responseTree.getRoot().getChildren()).hasSize(2);
   }
 
@@ -188,8 +198,8 @@ class RequestTabControllerTest {
   }
 
   @Test
-  @DisplayName("should show the view toggle and default to the tree for object responses")
-  void shouldShowViewToggleAndDefaultToTree() throws Exception {
+  @DisplayName("should show the view toggle and default to the raw view for object responses")
+  void shouldShowViewToggleAndDefaultToRaw() throws Exception {
     // given
     final var root = realized(controller);
     final var viewToggleBox = root.lookup("#viewToggleBox");
@@ -201,39 +211,19 @@ class RequestTabControllerTest {
 
     // then
     assertThat(viewToggleBox.isVisible()).isTrue();
-    assertThat(responseTree.isVisible()).isTrue();
-    assertThat(rawJsonView.isVisible()).isFalse();
-  }
-
-  @Test
-  @DisplayName("should switch to the highlighted raw view when the Raw toggle is clicked")
-  void shouldSwitchToRawViewOnToggle() throws Exception {
-    // given
-    final var root = realized(controller);
-    vm.responseJson.set(MAPPER.readTree("{\"id\":1}"));
-    final var responseTree = (TreeView<?>) root.lookup("#responseTree");
-    final var rawJsonView = root.lookup("#rawJsonView");
-    final var rawToggleBtn = (ToggleButton) root.lookup("#rawToggleBtn");
-
-    // when
-    rawToggleBtn.fire();
-
-    // then
     assertThat(rawJsonView.isVisible()).isTrue();
     assertThat(responseTree.isVisible()).isFalse();
   }
 
   @Test
-  @DisplayName("should switch back to the tree when the Tree toggle is clicked again")
-  void shouldSwitchBackToTreeOnToggle() throws Exception {
+  @DisplayName("should switch to the json tree when the Tree toggle is clicked")
+  void shouldSwitchToTreeViewOnToggle() throws Exception {
     // given
     final var root = realized(controller);
     vm.responseJson.set(MAPPER.readTree("{\"id\":1}"));
     final var responseTree = (TreeView<?>) root.lookup("#responseTree");
     final var rawJsonView = root.lookup("#rawJsonView");
-    final var rawToggleBtn = (ToggleButton) root.lookup("#rawToggleBtn");
     final var treeToggleBtn = (ToggleButton) root.lookup("#treeToggleBtn");
-    rawToggleBtn.fire();
 
     // when
     treeToggleBtn.fire();
@@ -244,13 +234,31 @@ class RequestTabControllerTest {
   }
 
   @Test
+  @DisplayName("should switch back to the raw view when the Raw toggle is clicked again")
+  void shouldSwitchBackToRawViewOnToggle() throws Exception {
+    // given
+    final var root = realized(controller);
+    vm.responseJson.set(MAPPER.readTree("{\"id\":1}"));
+    final var responseTree = (TreeView<?>) root.lookup("#responseTree");
+    final var rawJsonView = root.lookup("#rawJsonView");
+    final var rawToggleBtn = (ToggleButton) root.lookup("#rawToggleBtn");
+    final var treeToggleBtn = (ToggleButton) root.lookup("#treeToggleBtn");
+    treeToggleBtn.fire();
+
+    // when
+    rawToggleBtn.fire();
+
+    // then
+    assertThat(rawJsonView.isVisible()).isTrue();
+    assertThat(responseTree.isVisible()).isFalse();
+  }
+
+  @Test
   @DisplayName("should collapse a container to a placeholder when its fold toggle is clicked")
   void shouldFoldContainerInRawView() throws Exception {
     // given
     final var root = realized(controller);
     vm.responseJson.set(MAPPER.readTree("{\"dimensions\":{\"width\":1,\"height\":2}}"));
-    final var rawToggleBtn = (ToggleButton) root.lookup("#rawToggleBtn");
-    rawToggleBtn.fire();
     final var rawJsonFlow = (TextFlow) root.lookup("#rawJsonFlow");
     final var childCountBeforeFold = rawJsonFlow.getChildren().size();
     final var dimensionsFoldToggle = rawJsonFlow.lookup("#fold-1");
@@ -268,8 +276,6 @@ class RequestTabControllerTest {
     // given
     final var root = realized(controller);
     vm.responseJson.set(MAPPER.readTree("{\"dimensions\":{\"width\":1,\"height\":2}}"));
-    final var rawToggleBtn = (ToggleButton) root.lookup("#rawToggleBtn");
-    rawToggleBtn.fire();
     final var rawJsonFlow = (TextFlow) root.lookup("#rawJsonFlow");
     final var childCountBeforeFold = rawJsonFlow.getChildren().size();
     rawJsonFlow.lookup("#fold-1").getOnMouseClicked().handle(null);
@@ -279,5 +285,62 @@ class RequestTabControllerTest {
 
     // then
     assertThat(rawJsonFlow.getChildren().size()).isEqualTo(childCountBeforeFold);
+  }
+
+  @Test
+  @DisplayName("should show the raw highlighted view, with no tree toggle, for an xml response")
+  void shouldShowRawViewForXmlResponse() throws Exception {
+    // given
+    final var root = realized(controller);
+    final var responseArea = (TextArea) root.lookup("#responseArea");
+    final var responseTree = (TreeView<?>) root.lookup("#responseTree");
+    final var rawJsonView = root.lookup("#rawJsonView");
+    final var viewToggleBox = root.lookup("#viewToggleBox");
+
+    // when
+    vm.responseXml.set(parseXml("<person><name>Alice</name></person>"));
+
+    // then
+    assertThat(rawJsonView.isVisible()).isTrue();
+    assertThat(responseTree.isVisible()).isFalse();
+    assertThat(responseArea.isVisible()).isFalse();
+    // XML has no tree view yet, so the Tree/Raw toggle would be pointless - it stays hidden.
+    assertThat(viewToggleBox.isVisible()).isFalse();
+  }
+
+  @Test
+  @DisplayName("should switch back to the text area once the xml is cleared")
+  void shouldFallBackToTextAreaWhenXmlCleared() throws Exception {
+    // given
+    final var root = realized(controller);
+    final var responseArea = (TextArea) root.lookup("#responseArea");
+    final var rawJsonView = root.lookup("#rawJsonView");
+    vm.responseXml.set(parseXml("<person><name>Alice</name></person>"));
+
+    // when
+    vm.responseXml.set(null);
+
+    // then
+    assertThat(responseArea.isVisible()).isTrue();
+    assertThat(rawJsonView.isVisible()).isFalse();
+  }
+
+  @Test
+  @DisplayName("should collapse an xml element to a placeholder when its fold toggle is clicked")
+  void shouldFoldXmlElementInRawView() throws Exception {
+    // given
+    final var root = realized(controller);
+    vm.responseXml.set(
+        parseXml("<root><person><name>Alice</name><age>30</age></person></root>"));
+    final var rawJsonFlow = (TextFlow) root.lookup("#rawJsonFlow");
+    final var childCountBeforeFold = rawJsonFlow.getChildren().size();
+    // fold-0 is the <root> element itself; fold-1 is the nested <person> element.
+    final var personFoldToggle = rawJsonFlow.lookup("#fold-1");
+
+    // when
+    personFoldToggle.getOnMouseClicked().handle(null);
+
+    // then
+    assertThat(rawJsonFlow.getChildren().size()).isLessThan(childCountBeforeFold);
   }
 }
